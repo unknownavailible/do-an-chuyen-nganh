@@ -68,6 +68,13 @@ $functions = [
         'type' => 'read',
         'ajax' => true,
     ],
+'mod_kanban_add_comment' => [
+        'classname' => 'mod_kanban\\external\\card_api',
+        'methodname' => 'add_comment',
+        'description' => 'Binh luan chung cua thanh vien tren the',
+        'type' => 'write',
+        'ajax' => true,
+    ],
 'mod_kanban_add_teacher_comment' => [
         'classname' => 'mod_kanban\\external\\card_api',
         'methodname' => 'add_teacher_comment',

@@ -29,6 +29,18 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 column.addEventListener('dragover', function(e) {
                     e.preventDefault();
                     this.classList.add('dragover');
+                    if (draggedCard) {
+                        var afterElement = Array.from(this.querySelectorAll('.kanban-card:not(.dragging)'))
+                            .find(function(card) {
+                                var rect = card.getBoundingClientRect();
+                                return e.clientY < rect.top + rect.height / 2;
+                            });
+                        if (afterElement) {
+                            this.insertBefore(draggedCard, afterElement);
+                        } else {
+                            this.appendChild(draggedCard);
+                        }
+                    }
                 });
 
                 column.addEventListener('dragleave', function() {
@@ -41,7 +53,8 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                     if (draggedCard) {
                         var targetColumnId = this.dataset.columnid;
                         var cardId = draggedCard.dataset.cardid;
-                        this.appendChild(draggedCard);
+                        var newPosition = Array.from(this.querySelectorAll('.kanban-card'))
+                            .indexOf(draggedCard);
 
                         var placeholder = this.querySelector('.empty-column-placeholder');
                         if (placeholder) {
@@ -53,7 +66,8 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                             args: {
                                 cardid: parseInt(cardId),
                                 targetcolumnid: parseInt(targetColumnId),
-                                cmid: parseInt(cmid)
+                                cmid: parseInt(cmid),
+                                newposition: newPosition
                             }
                         }])[0].done(function(response) {
                             if (response.status) {
@@ -308,9 +322,186 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 }
             }
 
+            // ==========================================
+            // 2b. SỬA THẺ (gồm sửa người phụ trách)
+            // ==========================================
+            var editModal = null;
+            var editErrorAlert = null;
+
+            /**
+             * Converts a unix timestamp to datetime-local input value.
+             *
+             * @param {number} timestamp Unix timestamp in seconds.
+             * @returns {string} Value suitable for datetime-local input.
+             */
+            function timestampToDatetimeLocal(timestamp) {
+                if (!timestamp) {
+                    return '';
+                }
+                var d = new Date(timestamp * 1000);
+                var pad = function(n) {
+                    return (n < 10 ? '0' : '') + n;
+                };
+                return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+                    'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+            }
+
+            /**
+             * Opens the edit modal and prefills card data.
+             *
+             * @param {HTMLElement} cardElement Card element.
+             */
+            function openEditModal(cardElement) {
+                if (isDragging) {
+                    return;
+                }
+                editModal = document.getElementById('modalEditCard');
+                if (!editModal) {
+                    return;
+                }
+                editErrorAlert = document.getElementById('edit-card-error-alert');
+                var cardId = cardElement.dataset.cardid;
+                document.getElementById('edit-card-id').value = cardId;
+                document.getElementById('edit-card-title-input').value = cardElement.dataset.title || '';
+                var rawDesc = cardElement.querySelector('.card-desc-raw');
+                document.getElementById('edit-card-desc-input').value = rawDesc ? rawDesc.textContent.trim() : '';
+                document.getElementById('edit-card-duedate-input').value =
+                    timestampToDatetimeLocal(parseInt(cardElement.dataset.duedate || '0', 10));
+                document.getElementById('edit-card-url-input').value = cardElement.dataset.submissionurl || '';
+                var selectedIds = (cardElement.dataset.assigneeids || '').split(',').map(function(s) {
+                    return s.trim();
+                }).filter(function(s) {
+                    return s !== '';
+                });
+                var editAssigneeSelect = document.getElementById('edit-card-assignee-input');
+                if (editAssigneeSelect) {
+                    Array.from(editAssigneeSelect.options).forEach(function(option) {
+                        option.selected = selectedIds.indexOf(option.value) !== -1;
+                    });
+                }
+                if (editErrorAlert) {
+                    editErrorAlert.classList.add('d-none');
+                    editErrorAlert.innerText = '';
+                }
+                editModal.style.display = 'block';
+                editModal.classList.add('show');
+                document.body.classList.add('modal-open');
+                var backdrop = document.getElementById('edit-modal-backdrop');
+                if (!backdrop) {
+                    backdrop = document.createElement('div');
+                    backdrop.id = 'edit-modal-backdrop';
+                    backdrop.className = 'modal-backdrop fade show';
+                    document.body.appendChild(backdrop);
+                }
+            }
+
+            /**
+             * Closes the edit modal.
+             */
+            function closeEditModal() {
+                if (!editModal) {
+                    editModal = document.getElementById('modalEditCard');
+                }
+                if (!editModal) {
+                    return;
+                }
+                editModal.style.display = 'none';
+                editModal.classList.remove('show');
+                document.body.classList.remove('modal-open');
+                var backdrop = document.getElementById('edit-modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+            }
+
+            document.addEventListener('click', function(e) {
+                var editButton = e.target.closest && e.target.closest('.btn-edit-card');
+                if (editButton) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var editCard = editButton.closest('.kanban-card');
+                    if (editCard) {
+                        openEditModal(editCard);
+                    }
+                    return;
+                }
+                var dismissEdit = e.target.closest && e.target.closest(
+                    '#modalEditCard [data-bs-dismiss="modal"], #modalEditCard .btn-close, ' +
+                    '#modalEditCard .btn-secondary'
+                );
+                if (dismissEdit) {
+                    closeEditModal();
+                    return;
+                }
+                if (editModal && editModal.style.display === 'block' && e.target.id === 'edit-modal-backdrop') {
+                    closeEditModal();
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (e.target.closest && e.target.closest('#btn-update-card')) {
+                    var cardIdVal = document.getElementById('edit-card-id').value;
+                    var newTitle = document.getElementById('edit-card-title-input').value.trim();
+                    var newDesc = document.getElementById('edit-card-desc-input').value.trim();
+                    var newDuedateStr = document.getElementById('edit-card-duedate-input').value;
+                    var newUrl = document.getElementById('edit-card-url-input').value.trim();
+                    var newAssigneeSelect = document.getElementById('edit-card-assignee-input');
+                    var newAssigneeIds = [];
+                    if (newAssigneeSelect) {
+                        newAssigneeIds = Array.from(newAssigneeSelect.selectedOptions).map(function(option) {
+                            return parseInt(option.value, 10);
+                        }).filter(function(value) {
+                            return !isNaN(value);
+                        });
+                    }
+                    editErrorAlert = document.getElementById('edit-card-error-alert');
+                    if (!newTitle) {
+                        editErrorAlert.innerText = 'Vui lòng nhập tên công việc!';
+                        editErrorAlert.classList.remove('d-none');
+                        return;
+                    }
+                    var newDuedateTimestamp = 0;
+                    if (newDuedateStr) {
+                        var selectedDate = new Date(newDuedateStr);
+                        var now = new Date();
+                        if (selectedDate.getTime() < (now.getTime() - 60000)) {
+                            editErrorAlert.innerText = 'Lỗi: Hạn hoàn thành không thể là thời gian trong quá khứ!';
+                            editErrorAlert.classList.remove('d-none');
+                            return;
+                        }
+                        newDuedateTimestamp = Math.floor(selectedDate.getTime() / 1000);
+                    }
+                    ajax.call([{
+                        methodname: 'mod_kanban_update_card',
+                        args: {
+                            cardid: parseInt(cardIdVal),
+                            cmid: parseInt(cmid),
+                            title: newTitle,
+                            description: newDesc,
+                            duedate: newDuedateTimestamp,
+                            submissionurl: newUrl,
+                            assignees: newAssigneeIds
+                        }
+                    }])[0].done(function(response) {
+                        if (response.status) {
+                            closeEditModal();
+                            window.location.reload();
+                        }
+                    }).fail(function(error) {
+                        var message = (error && error.message) ? error.message : 'Có lỗi xảy ra!';
+                        editErrorAlert.innerText = message;
+                        editErrorAlert.classList.remove('d-none');
+                    });
+                }
+            });
+
             // Thêm click handler cho các card (xem chi tiết)
             document.addEventListener('click', function(e) {
                 if (isDragging) {
+                    return;
+                }
+
+                if (e.target.closest && (e.target.closest('.btn-edit-card') || e.target.closest('#modalEditCard'))) {
                     return;
                 }
 
@@ -326,7 +517,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 }
 
                 var card = e.target.closest && e.target.closest('.kanban-card');
-                if (card && !e.target.closest('.btn-delete-card') &&
+                if (card && !e.target.closest('.btn-delete-card') && !e.target.closest('.btn-edit-card') &&
                     !e.target.closest('.btn-view-card') && !e.target.closest('.badge')) {
                     openDetailModal(card);
                     return;
@@ -345,7 +536,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                     return;
                 }
                 ajax.call([{
-                    methodname: 'mod_kanban_add_teacher_comment',
+                    methodname: 'mod_kanban_add_comment',
                     args: {cardid: parseInt(cardId), cmid: parseInt(cmid), comment: input.value.trim()}
                 }])[0].done(function() {
                     input.value = '';
@@ -488,11 +679,20 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                         body: formData,
                         credentials: 'same-origin'
                     }).then(function(response) {
-                        return response.json();
-                    }).then(function(response) {
-                        if (!response.status) {
-                            throw new Error(response.message || 'Có lỗi xảy ra!');
-                        }
+                        return response.text().then(function(text) {
+                            var data;
+                            try {
+                                data = JSON.parse(text);
+                            } catch (parseError) {
+                                throw new Error('Server trả về không phải JSON (HTTP ' +
+                                    response.status + '): ' + (text || 'trống').substring(0, 300));
+                            }
+                            if (!response.ok || !data.status) {
+                                throw new Error(data.message || ('Server lỗi HTTP ' + response.status));
+                            }
+                            return data;
+                        });
+                    }).then(function() {
                         closeModal();
                         window.location.reload();
                     }).catch(function(error) {

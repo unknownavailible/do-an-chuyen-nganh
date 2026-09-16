@@ -23,6 +23,12 @@ class restore_kanban_activity_structure_step extends restore_activity_structure_
         $oldid = $data->id;
         $data->course = $this->get_courseid();
         $data->creatorid = $this->map_userid($data->creatorid);
+        if (!empty($data->assignmentid)) {
+            $assign = $DB->get_record('assign', ['id' => (int)$data->assignmentid, 'course' => $data->course]);
+            $data->assignmentid = $assign ? (int)$assign->id : 0;
+        } else {
+            $data->assignmentid = 0;
+        }
         $newid = $DB->insert_record('kanban', $data);
         $this->apply_activity_instance($newid);
     }

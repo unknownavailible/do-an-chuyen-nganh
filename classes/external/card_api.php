@@ -16,21 +16,23 @@ use stdClass;
 
 class card_api extends \core_external\external_api {
 
-    // 1. Di chuyển thẻ
+    // 1. Di chuyển thẻ (kèm vị trí newposition trong cột đích)
     public static function move_card_parameters() {
         return new \core_external\external_function_parameters([
             'cardid' => new \core_external\external_value(PARAM_INT, 'ID của thẻ'),
             'targetcolumnid' => new \core_external\external_value(PARAM_INT, 'ID của cột đích'),
-            'cmid' => new \core_external\external_value(PARAM_INT, 'Course module ID')
+            'cmid' => new \core_external\external_value(PARAM_INT, 'Course module ID'),
+            'newposition' => new \core_external\external_value(PARAM_INT, 'Vị trí mới trong cột đích (0-based)', VALUE_DEFAULT, -1)
         ]);
     }
 
-    public static function move_card($cardid, $targetcolumnid, $cmid) {
+    public static function move_card($cardid, $targetcolumnid, $cmid, $newposition = -1) {
         global $DB;
         $params = self::validate_parameters(self::move_card_parameters(), [
             'cardid' => $cardid,
             'targetcolumnid' => $targetcolumnid,
-            'cmid' => $cmid
+            'cmid' => $cmid,
+            'newposition' => $newposition
         ]);
 
         $cm = get_coursemodule_from_id('kanban', $params['cmid'], 0, false, MUST_EXIST);
@@ -49,13 +51,57 @@ class card_api extends \core_external\external_api {
             kanban_check_wip_limit($targetcolumn, $kanban->id, $card->id);
         }
 
+        $oldcolumnid = (int)$card->columnid;
         $card->columnid = $params['targetcolumnid'];
         $card->timemodified = time();
         $DB->update_record('kanban_cards', $card);
-        kanban_log_card_change($card->id, 'moved', 'Chuyen sang cot ' . $targetcolumn->title);
+
+        // Sắp xếp lại sortorder trong cột đích (cùng group để khớp hiển thị đã lọc).
+        $siblings = $DB->get_records('kanban_cards', [
+            'kanbanid' => $kanban->id,
+            'columnid' => $targetcolumn->id,
+            'groupid' => (int)$card->groupid,
+        ], 'sortorder ASC, id ASC');
+        unset($siblings[$card->id]);
+        $ordered = array_values($siblings);
+        $position = (int)$params['newposition'];
+        if ($position < 0 || $position > count($ordered)) {
+            $position = count($ordered);
+        }
+        array_splice($ordered, $position, 0, [$card]);
+        $order = 0;
+        foreach ($ordered as $sibling) {
+            $DB->set_field('kanban_cards', 'sortorder', $order, ['id' => $sibling->id]);
+            $order++;
+        }
+        // Dồn lại thứ tự cột cũ khi chuyển cột.
+        if ($oldcolumnid !== (int)$targetcolumn->id) {
+            $oldsiblings = $DB->get_records('kanban_cards', [
+                'kanbanid' => $kanban->id,
+                'columnid' => $oldcolumnid,
+                'groupid' => (int)$card->groupid,
+            ], 'sortorder ASC, id ASC');
+            $order = 0;
+            foreach ($oldsiblings as $oldsibling) {
+                $DB->set_field('kanban_cards', 'sortorder', $order, ['id' => $oldsibling->id]);
+                $order++;
+            }
+        }
+
+        \mod_kanban\event\card_moved::create([
+            'objectid' => $card->id,
+            'context' => $context,
+            'other' => [
+                'kanbanid' => $kanban->id,
+                'fromcolumnid' => $oldcolumnid,
+                'tocolumnid' => (int)$targetcolumn->id,
+                'newposition' => $position,
+            ],
+        ])->trigger();
+        kanban_log_card_change($card->id, 'moved', get_string('history_moved', 'mod_kanban', format_string($targetcolumn->title)));
         kanban_notify_card_assignees($card, $cm, 'updated');
 
-        return ['status' => true, 'message' => 'Di chuyển thẻ thành công'];
+        return ['status' => true, 'message' => get_string('msg_card_moved', 'mod_kanban')];
     }
 
     public static function move_card_returns() {
@@ -118,12 +164,11 @@ class card_api extends \core_external\external_api {
         }
 
         if ($params['duedate'] > 0 && $params['duedate'] < (time() - 300)) {
-            throw new \moodle_exception('error_duedate_past', 'mod_kanban', '', 'Hạn hoàn thành không thể ở trong quá khứ!');
+            throw new \moodle_exception('error_duedate_past', 'mod_kanban');
         }
 
         kanban_check_wip_limit($targetcolumn, $kanban->id);
 
-        $oldassigneeids = kanban_get_card_assignee_ids($card->id);
         $assigneeids = kanban_validate_assignee_list($cm, $params['assignees']);
 
         $card = new stdClass();
@@ -135,20 +180,29 @@ class card_api extends \core_external\external_api {
         $card->duedate = $params['duedate'];
         $card->task_url = $params['submissionurl'];
         $card->assigned_to = !empty($assigneeids) ? (int) $assigneeids[0] : 0;
-        $card->sortorder = 0;
+        $maxorder = $DB->get_field_sql(
+            'SELECT MAX(sortorder) FROM {kanban_cards} WHERE kanbanid = :kanbanid AND columnid = :columnid AND groupid = :groupid',
+            ['kanbanid' => $kanban->id, 'columnid' => $targetcolumn->id, 'groupid' => $currentgroup ? $currentgroup : 0]
+        );
+        $card->sortorder = ($maxorder === null || $maxorder === false) ? 0 : ((int)$maxorder + 1);
         $card->timecreated = time();
         $card->timemodified = time();
 
         $cardid = $DB->insert_record('kanban_cards', $card);
         kanban_set_card_assignees($cardid, $assigneeids, $cm);
-        kanban_log_card_change($cardid, 'created', 'Tao the');
+        \mod_kanban\event\card_created::create([
+            'objectid' => $cardid,
+            'context' => $context,
+            'other' => ['kanbanid' => $kanban->id, 'columnid' => (int)$targetcolumn->id],
+        ])->trigger();
+        kanban_log_card_change($cardid, 'created', get_string('history_created', 'mod_kanban'));
         $card->id = $cardid;
         kanban_notify_card_assignees($card, $cm, 'assigned');
 
         return [
             'status' => true,
             'cardid' => $cardid,
-            'message' => 'Tạo thẻ thành công'
+            'message' => get_string('msg_card_created', 'mod_kanban')
         ];
     }
 
@@ -203,14 +257,15 @@ class card_api extends \core_external\external_api {
 
         $title = trim((string) $params['title']);
         if ($title === '') {
-            throw new \moodle_exception('required', 'mod_kanban', '', 'Tên công việc không được để trống');
+            throw new \moodle_exception('required', 'mod_kanban');
         }
 
         if ($params['duedate'] > 0 && $params['duedate'] < (time() - 300)) {
-            throw new \moodle_exception('error_duedate_past', 'mod_kanban', '', 'Hạn hoàn thành không thể ở trong quá khứ!');
+            throw new \moodle_exception('error_duedate_past', 'mod_kanban');
         }
 
         $assigneeids = kanban_validate_assignee_list($cm, $params['assignees']);
+        $oldassigneeids = kanban_get_card_assignee_ids($card->id);
 
         $card->title = $title;
         $card->description = $params['description'];
@@ -220,14 +275,19 @@ class card_api extends \core_external\external_api {
         $DB->update_record('kanban_cards', $card);
 
         kanban_set_card_assignees($card->id, $assigneeids, $cm);
-        kanban_log_card_change($card->id, 'updated', 'Cap nhat the');
+        \mod_kanban\event\card_updated::create([
+            'objectid' => $card->id,
+            'context' => $context,
+            'other' => ['kanbanid' => $kanban->id],
+        ])->trigger();
+        kanban_log_card_change($card->id, 'updated', get_string('history_updated', 'mod_kanban'));
         if ($oldassigneeids !== $assigneeids) {
             kanban_notify_card_assignees($card, $cm, 'assigned');
         } else {
             kanban_notify_card_assignees($card, $cm, 'updated');
         }
 
-        return ['status' => true, 'message' => 'Cập nhật thẻ thành công'];
+        return ['status' => true, 'message' => get_string('msg_card_updated', 'mod_kanban')];
     }
 
     public static function update_card_returns() {
@@ -263,10 +323,16 @@ class card_api extends \core_external\external_api {
         $kanban = $DB->get_record('kanban', ['id' => $cm->instance], '*', MUST_EXIST);
         $card = kanban_validate_and_get_card($params['cardid'], $cm, $kanban, 'mod/kanban:managecards');
 
-        kanban_log_card_change($card->id, 'deleted', 'Xoa the');
+        kanban_log_card_change($card->id, 'deleted', get_string('history_deleted', 'mod_kanban'));
+        $deletedcardid = (int)$card->id;
         $DB->delete_records('kanban_cards', ['id' => $card->id]);
+        \mod_kanban\event\card_deleted::create([
+            'objectid' => $deletedcardid,
+            'context' => $context,
+            'other' => ['kanbanid' => $kanban->id],
+        ])->trigger();
 
-        return ['status' => true, 'message' => 'Xóa thẻ thành công'];
+        return ['status' => true, 'message' => get_string('msg_card_deleted', 'mod_kanban')];
     }
 
     public static function delete_card_returns() {
@@ -367,7 +433,7 @@ class card_api extends \core_external\external_api {
         }
 
         $file->delete();
-        return ['status' => true, 'message' => 'File đã được xóa'];
+        return ['status' => true, 'message' => get_string('msg_file_deleted', 'mod_kanban')];
     }
 
     public static function delete_card_file_returns() {
@@ -478,13 +544,68 @@ class card_api extends \core_external\external_api {
         if ($record->comment === '') {
             throw new \moodle_exception('commentrequired', 'mod_kanban');
         }
-        $DB->insert_record('kanban_card_comments', $record);
-        kanban_log_card_change($card->id, 'commented', 'Them binh luan cua giao vien');
+        $commentid = $DB->insert_record('kanban_card_comments', $record);
+        \mod_kanban\event\comment_created::create([
+            'objectid' => $commentid,
+            'context' => $context,
+            'other' => ['cardid' => $card->id, 'kanbanid' => $kanban->id],
+        ])->trigger();
+        kanban_log_card_change($card->id, 'commented', get_string('history_commented_teacher', 'mod_kanban'));
         kanban_notify_card_assignees($card, $cm, 'updated');
-        return ['status' => true, 'message' => 'Bình luận đã được lưu'];
+        return ['status' => true, 'message' => get_string('msg_comment_saved', 'mod_kanban')];
     }
 
     public static function add_teacher_comment_returns() {
+        return new \core_external\external_single_structure([
+            'status' => new \core_external\external_value(PARAM_BOOL),
+            'message' => new \core_external\external_value(PARAM_TEXT, 'Thông báo', VALUE_DEFAULT, '')
+        ]);
+    }
+
+    public static function add_comment_parameters() {
+        return new \core_external\external_function_parameters([
+            'cardid' => new \core_external\external_value(PARAM_INT, 'ID cua the'),
+            'cmid' => new \core_external\external_value(PARAM_INT, 'Course module ID'),
+            'comment' => new \core_external\external_value(PARAM_TEXT, 'Noi dung binh luan')
+        ]);
+    }
+
+    /**
+     * Bình luận chung cho mọi thành viên có quyền quản lý card (kể cả sinh viên).
+     */
+    public static function add_comment($cardid, $cmid, $comment) {
+        global $DB, $USER;
+        $params = self::validate_parameters(self::add_comment_parameters(), compact('cardid', 'cmid', 'comment'));
+        $cm = get_coursemodule_from_id('kanban', $params['cmid'], 0, false, MUST_EXIST);
+        $course = get_course($cm->course);
+        require_login($course, false, $cm);
+        $context = context_module::instance($cm->id);
+        self::validate_context($context);
+        require_capability('mod/kanban:managecards', $context);
+        require_sesskey();
+        $kanban = $DB->get_record('kanban', ['id' => $cm->instance], '*', MUST_EXIST);
+        $card = kanban_validate_and_get_card($params['cardid'], $cm, $kanban, 'mod/kanban:managecards');
+
+        if (!$DB->get_manager()->table_exists('kanban_card_comments')) {
+            throw new \moodle_exception('modulerequiresupgrade', 'mod_kanban');
+        }
+
+        $record = (object)['cardid' => $card->id, 'userid' => $USER->id, 'comment' => trim($params['comment']), 'timecreated' => time()];
+        if ($record->comment === '') {
+            throw new \moodle_exception('commentrequired', 'mod_kanban');
+        }
+        $commentid = $DB->insert_record('kanban_card_comments', $record);
+        \mod_kanban\event\comment_created::create([
+            'objectid' => $commentid,
+            'context' => $context,
+            'other' => ['cardid' => $card->id, 'kanbanid' => $kanban->id],
+        ])->trigger();
+        kanban_log_card_change($card->id, 'commented', get_string('history_commented', 'mod_kanban'));
+        kanban_notify_card_assignees($card, $cm, 'updated');
+        return ['status' => true, 'message' => get_string('msg_comment_saved', 'mod_kanban')];
+    }
+
+    public static function add_comment_returns() {
         return new \core_external\external_single_structure([
             'status' => new \core_external\external_value(PARAM_BOOL),
             'message' => new \core_external\external_value(PARAM_TEXT, 'Thông báo', VALUE_DEFAULT, '')

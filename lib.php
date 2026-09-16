@@ -13,6 +13,10 @@ function kanban_add_instance($kanban, $mform = null) {
     global $DB, $USER;
 
     $kanban->creatorid = $USER->id;
+    $kanban->assignmentid = kanban_validate_linked_assignment(
+        isset($kanban->assignmentid) ? (int)$kanban->assignmentid : 0,
+        isset($kanban->course) ? (int)$kanban->course : 0
+    );
     $kanban->timecreated = time();
     $kanban->timemodified = time();
 
@@ -67,8 +71,60 @@ function kanban_update_instance($kanban, $mform = null) {
 
     $kanban->timemodified = time();
     $kanban->id = $kanban->instance;
+    $courseid = isset($kanban->course) ? (int)$kanban->course : 0;
+    if (!$courseid && !empty($kanban->id)) {
+        $courseid = (int)$DB->get_field('kanban', 'course', ['id' => $kanban->id]);
+    }
+    $kanban->assignmentid = kanban_validate_linked_assignment(
+        isset($kanban->assignmentid) ? (int)$kanban->assignmentid : 0,
+        $courseid
+    );
 
     return $DB->update_record('kanban', $kanban);
+}
+
+/**
+ * Kiểm tra assignment liên kết có thuộc cùng khóa học không.
+ * Trả về 0 nếu không hợp lệ (không liên kết).
+ *
+ * @param int $assignmentid ID bản ghi trong bảng assign.
+ * @param int $courseid ID khóa học của Kanban.
+ * @return int Assignment ID hợp lệ hoặc 0.
+ */
+function kanban_validate_linked_assignment($assignmentid, $courseid) {
+    global $DB;
+
+    $assignmentid = (int)$assignmentid;
+    $courseid = (int)$courseid;
+    if ($assignmentid <= 0 || $courseid <= 0) {
+        return 0;
+    }
+    $assign = $DB->get_record('assign', ['id' => $assignmentid, 'course' => $courseid]);
+    return $assign ? $assignmentid : 0;
+}
+
+/**
+ * Lấy thông tin assignment liên kết để hiển thị trên bảng Kanban.
+ *
+ * @param stdClass $kanban Bản ghi Kanban.
+ * @return array|null Mảng [name, url, duedate] hoặc null khi không liên kết.
+ */
+function kanban_get_linked_assignment_info($kanban) {
+    global $DB;
+
+    if (empty($kanban->assignmentid)) {
+        return null;
+    }
+    $assign = $DB->get_record('assign', ['id' => (int)$kanban->assignmentid, 'course' => $kanban->course]);
+    if (!$assign) {
+        return null;
+    }
+    $cm = get_coursemodule_from_instance('assign', $assign->id, $assign->course, false, IGNORE_MISSING);
+    return [
+        'name' => format_string($assign->name),
+        'url' => $cm ? (new moodle_url('/mod/assign/view.php', ['id' => $cm->id]))->out() : null,
+        'duedate' => !empty($assign->duedate) ? (int)$assign->duedate : 0,
+    ];
 }
 
 /**
@@ -173,10 +229,6 @@ function kanban_validate_and_get_card($cardid, $cm, $kanban, $requiredcapability
     if (!kanban_user_has_group_access($cm, $card->groupid, $context)) {
         throw new 
             moodle_exception('nopermissions', 'error');
-    }
-
-    if (!empty($card->assigned_to) && (int)$card->assigned_to !== (int)$USER->id && !has_capability('mod/kanban:viewdashboard', $context)) {
-        // nếu card gán cho user khác, vẫn cho phép thao tác nếu đang ở cùng nhóm và có quyền phù hợp.
     }
 
     return $card;

@@ -42,18 +42,23 @@ foreach ($columns as $col) {
         $is_due_soon = (!$is_done && !$is_overdue && $card->duedate > 0 && $card->duedate <= (time() + 86400 * 2)); // trong 48h
         $has_feedback = $comments_table_exists && $DB->count_records('kanban_card_comments', ['cardid' => $card->id]) > 0;
         $assigneenames = kanban_get_card_assignee_names($card->id);
+        $assigneeids = kanban_get_card_assignee_ids($card->id);
 
         $card_list[] = [
             'id' => $card->id,
             'column_title' => format_string($col->title),
             'title' => format_string($card->title),
+            'title_raw' => $card->title,
             'description' => format_text($card->description, FORMAT_MOODLE),
+            'description_raw' => $card->description ?? '',
             'assignee_names' => $assigneenames,
+            'assignee_ids' => implode(',', $assigneeids),
+            'duedate_raw' => (int)($card->duedate ?? 0),
             'duedate_formatted' => $card->duedate ? userdate($card->duedate, '%d/%m/%Y %H:%M') : null,
             'is_overdue' => $is_overdue,
             'is_due_soon' => $is_due_soon,
             'has_feedback' => $has_feedback,
-            'submissionurl' => !empty($card->submissionurl) ? $card->submissionurl : '',
+            'submissionurl' => !empty($card->task_url) ? $card->task_url : (!empty($card->submissionurl) ? $card->submissionurl : ''),
         ];
     }
 
@@ -69,10 +74,22 @@ foreach ($columns as $col) {
     ];
 }
 
+$linkedassignment = kanban_get_linked_assignment_info($kanban);
+$assignmentcontext = null;
+if ($linkedassignment) {
+    $assignmentcontext = [
+        'name' => $linkedassignment['name'],
+        'url' => $linkedassignment['url'],
+        'duedate_formatted' => $linkedassignment['duedate']
+            ? userdate($linkedassignment['duedate'], '%d/%m/%Y %H:%M') : null,
+    ];
+}
+
 $templatecontext = [
     'cmid' => $cm->id,
     'kanbanid' => $kanban->id,
     'kanbanname' => format_string($kanban->name),
+    'linkedassignment' => $assignmentcontext,
     'creatorname' => $creator ? fullname($creator) : get_string('unknowncreator', 'mod_kanban'),
     'intro' => format_module_intro('kanban', $kanban, $cm->id),
     'can_manage' => has_capability('mod/kanban:managecards', $context),

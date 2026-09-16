@@ -40,7 +40,7 @@ if (!has_capability('moodle/site:accessallgroups', $context) && $currentgroup &&
 
 // Validate duedate
 if ($duedate > 0 && $duedate < (time() - 300)) {
-    echo json_encode(['status' => false, 'message' => 'Hạn hoàn thành không thể ở trong quá khứ!']);
+    echo json_encode(['status' => false, 'message' => get_string('error_duedate_past', 'mod_kanban')]);
     exit;
 }
 
@@ -58,13 +58,22 @@ $card->duedate = $duedate;
 $card->task_url = $submissionurl;
 $assigneeids = kanban_validate_assignee_list($cm, $assignees);
 $card->assigned_to = !empty($assigneeids) ? (int)$assigneeids[0] : 0;
-$card->sortorder = 0;
+$maxorder = $DB->get_field_sql(
+    'SELECT MAX(sortorder) FROM {kanban_cards} WHERE kanbanid = :kanbanid AND columnid = :columnid AND groupid = :groupid',
+    ['kanbanid' => $kanban->id, 'columnid' => $column->id, 'groupid' => $currentgroup ? $currentgroup : 0]
+);
+$card->sortorder = ($maxorder === null || $maxorder === false) ? 0 : ((int)$maxorder + 1);
 $card->timecreated = time();
 $card->timemodified = time();
 
 $cardid = $DB->insert_record('kanban_cards', $card);
 kanban_set_card_assignees($cardid, $assigneeids, $cm);
-kanban_log_card_change($cardid, 'created', 'Tao the');
+\mod_kanban\event\card_created::create([
+    'objectid' => $cardid,
+    'context' => $context,
+    'other' => ['kanbanid' => $kanban->id, 'columnid' => (int)$column->id],
+])->trigger();
+kanban_log_card_change($cardid, 'created', get_string('history_created', 'mod_kanban'));
 $card->id = $cardid;
 kanban_notify_card_assignees($card, $cm, 'assigned');
 
@@ -122,5 +131,5 @@ foreach ($uploadgroups as $attachments) {
     }
 }
 
-echo json_encode(['status' => true, 'cardid' => $cardid, 'files' => $filesaved, 'message' => 'Tạo thẻ thành công']);
+echo json_encode(['status' => true, 'cardid' => $cardid, 'files' => $filesaved, 'message' => get_string('msg_card_created', 'mod_kanban')]);
 exit;

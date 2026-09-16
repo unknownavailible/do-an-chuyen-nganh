@@ -103,5 +103,15 @@ function xmldb_kanban_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026091604, 'kanban');
     }
 
+    if ($oldversion < 2026091605) {
+        $table = new xmldb_table('kanban');
+        $field = new xmldb_field('assignmentid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, 0, 'course');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026091605, 'kanban');
+    }
+
     return true;
 }

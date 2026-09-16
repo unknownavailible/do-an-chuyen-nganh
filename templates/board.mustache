@@ -17,13 +17,25 @@
     {{/intro}}
 
     <div class="text-muted small mb-3">
-        <i class="fa fa-user me-1"></i> Người tạo: <strong>{{creatorname}}</strong>
+        <i class="fa fa-user me-1"></i> {{#str}}creator, mod_kanban{{/str}}: <strong>{{creatorname}}</strong>
     </div>
+
+    {{#linkedassignment}}
+        <div class="alert alert-secondary d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <i class="fa fa-tasks me-1"></i>
+                <strong>{{#str}}linkedassignment, mod_kanban{{/str}}:</strong>
+                {{#url}}<a href="{{url}}" target="_blank">{{name}}</a>{{/url}}
+                {{^url}}{{name}}{{/url}}
+                {{#duedate_formatted}}<span class="text-muted ms-2"><i class="fa fa-calendar"></i> {{duedate_formatted}}</span>{{/duedate_formatted}}
+            </div>
+        </div>
+    {{/linkedassignment}}
 
     {{#can_manage_columns}}
         <div class="d-flex justify-content-end mb-3">
             <button type="button" class="btn btn-outline-primary btn-sm btn-add-column">
-                <i class="fa fa-plus"></i> Thêm cột
+                <i class="fa fa-plus"></i> {{#str}}addcolumn, mod_kanban{{/str}}
             </button>
         </div>
     {{/can_manage_columns}}
@@ -40,30 +52,35 @@
                     <div class="d-flex align-items-center gap-1">
                         <span class="badge bg-secondary rounded-pill px-2 py-1">{{card_count}}{{#wip_limit}} / {{wip_limit}}{{/wip_limit}}</span>
                         {{#can_manage_columns}}
-                            <button type="button" class="btn btn-sm btn-link p-0 btn-edit-column" data-columnid="{{id}}" data-title="{{title}}" data-description="{{description}}" data-color="{{color}}" data-wip="{{wip_limit}}" title="Sửa cột"><i class="fa fa-pencil"></i></button>
-                            <button type="button" class="btn btn-sm btn-link text-danger p-0 btn-delete-column" data-columnid="{{id}}" data-title="{{title}}" title="Xóa cột"><i class="fa fa-trash-o"></i></button>
-                            <button type="button" class="btn btn-sm btn-link p-0 btn-move-column" data-columnid="{{id}}" data-direction="-1" title="Đưa sang trái"><i class="fa fa-arrow-left"></i></button>
-                            <button type="button" class="btn btn-sm btn-link p-0 btn-move-column" data-columnid="{{id}}" data-direction="1" title="Đưa sang phải"><i class="fa fa-arrow-right"></i></button>
+                            <button type="button" class="btn btn-sm btn-link p-0 btn-edit-column" data-columnid="{{id}}" data-title="{{title}}" data-description="{{description}}" data-color="{{color}}" data-wip="{{wip_limit}}" title="{{#str}}editcolumn, mod_kanban{{/str}}"><i class="fa fa-pencil"></i></button>
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0 btn-delete-column" data-columnid="{{id}}" data-title="{{title}}" title="{{#str}}deletecolumn, mod_kanban{{/str}}"><i class="fa fa-trash-o"></i></button>
+                            <button type="button" class="btn btn-sm btn-link p-0 btn-move-column" data-columnid="{{id}}" data-direction="-1" title="{{#str}}moveleft, mod_kanban{{/str}}"><i class="fa fa-arrow-left"></i></button>
+                            <button type="button" class="btn btn-sm btn-link p-0 btn-move-column" data-columnid="{{id}}" data-direction="1" title="{{#str}}moveright, mod_kanban{{/str}}"><i class="fa fa-arrow-right"></i></button>
                         {{/can_manage_columns}}
                     </div>
                 </div>
 
                 <div class="card-body kanban-card-list p-2 d-flex flex-column gap-2" style="flex: 1 1 auto; min-height: 380px;" data-columnid="{{id}}">
                     {{#cards}}
-                        <div class="kanban-card card shadow-sm border-0 p-3 position-relative" draggable="true" data-cardid="{{id}}" data-columntitle="{{column_title}}" data-submissionurl="{{submissionurl}}" data-assignees="{{assignee_names}}" style="margin-bottom: 14px; background-color: #ffffff; border-radius: 6px;">
-                            <!-- Header thẻ và nút xóa -->
+                        <div class="kanban-card card shadow-sm border-0 p-3 position-relative" draggable="true" data-cardid="{{id}}" data-columntitle="{{column_title}}" data-submissionurl="{{submissionurl}}" data-assignees="{{assignee_names}}" data-assigneeids="{{assignee_ids}}" data-duedate="{{duedate_raw}}" data-title="{{title_raw}}" style="margin-bottom: 14px; background-color: #ffffff; border-radius: 6px;">
+                            <!-- Header thẻ và nút sửa/xóa -->
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div class="d-flex align-items-center gap-2">
                                     {{#has_feedback}}
-                                        <span class="badge bg-warning text-dark px-2" style="font-size: 0.68rem;" title="Có phản hồi của giáo viên">
-                                            <i class="fa fa-commenting"></i> Phản hồi
+                                        <span class="badge bg-warning text-dark px-2" style="font-size: 0.68rem;" title="{{#str}}feedback_title, mod_kanban{{/str}}">
+                                            <i class="fa fa-commenting"></i> {{#str}}feedback, mod_kanban{{/str}}
                                         </span>
                                     {{/has_feedback}}
                                 </div>
                                 {{#can_manage}}
-                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 btn-delete-card" data-cardid="{{id}}" title="Xóa công việc">
+                                <div class="d-flex align-items-center gap-1">
+                                    <button type="button" class="btn btn-sm btn-link p-0 btn-edit-card" data-cardid="{{id}}" title="{{#str}}editcard, mod_kanban{{/str}}">
+                                        <i class="fa fa-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 btn-delete-card" data-cardid="{{id}}" title="{{#str}}deletecard, mod_kanban{{/str}}">
                                         <i class="fa fa-trash-o"></i>
                                     </button>
+                                </div>
                                 {{/can_manage}}
                             </div>
 
@@ -74,6 +91,7 @@
                             {{#description}}
                                 <div class="text-muted small text-truncate mb-2">{{{description}}}</div>
                             {{/description}}
+                            <div class="d-none card-desc-raw">{{description_raw}}</div>
 
                             <div class="small text-muted mb-2">
                                 <i class="fa fa-user-circle me-1"></i>
@@ -81,7 +99,7 @@
                                     {{assignee_names}}
                                 {{/assignee_names}}
                                 {{^assignee_names}}
-                                    Chưa phân công
+                                    {{#str}}dashboard_unassigned, mod_kanban{{/str}}
                                 {{/assignee_names}}
                             </div>
 
@@ -89,13 +107,13 @@
                             {{#duedate_formatted}}
                                 <div class="mt-2 pt-2 border-top">
                                     {{#is_overdue}}
-                                        <span class="badge bg-danger text-white w-100 py-1" title="Đã quá hạn!">
-                                            <i class="fa fa-exclamation-triangle"></i> Quá hạn: {{duedate_formatted}}
+                                        <span class="badge bg-danger text-white w-100 py-1" title="{{#str}}overdue_badge, mod_kanban, {{duedate_formatted}} {{/str}}">
+                                            <i class="fa fa-exclamation-triangle"></i> {{#str}}overdue_badge, mod_kanban, {{duedate_formatted}} {{/str}}
                                         </span>
                                     {{/is_overdue}}
                                     {{#is_due_soon}}
-                                        <span class="badge bg-warning text-dark w-100 py-1" title="Sắp đến hạn nộp!">
-                                            <i class="fa fa-clock-o"></i> Sắp đến hạn: {{duedate_formatted}}
+                                        <span class="badge bg-warning text-dark w-100 py-1" title="{{#str}}duesoon_badge, mod_kanban, {{duedate_formatted}} {{/str}}">
+                                            <i class="fa fa-clock-o"></i> {{#str}}duesoon_badge, mod_kanban, {{duedate_formatted}} {{/str}}
                                         </span>
                                     {{/is_due_soon}}
                                     {{^is_overdue}}
@@ -107,7 +125,7 @@
                             {{/duedate_formatted}}
 
                             <button type="button" class="btn btn-sm btn-outline-info w-100 mt-2 btn-view-card" data-cardid="{{id}}">
-                                <i class="fa fa-eye me-1"></i> Xem chi tiết
+                                <i class="fa fa-eye me-1"></i> {{#str}}viewdetails, mod_kanban{{/str}}
                             </button>
                         </div>
                     {{/cards}}
@@ -115,7 +133,7 @@
                     {{^has_cards}}
                         <div class="empty-column-placeholder text-center text-muted py-4 small">
                             <i class="fa fa-inbox fa-2x mb-2 d-block opacity-50"></i>
-                            Chưa có công việc nào
+                            {{#str}}nocards, mod_kanban{{/str}}
                         </div>
                     {{/has_cards}}
                 </div>
@@ -137,7 +155,7 @@
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modalAddCardLabel"><i class="fa fa-plus-circle me-2"></i> Thêm công việc mới</h5>
+                <h5 class="modal-title" id="modalAddCardLabel"><i class="fa fa-plus-circle me-2"></i> {{#str}}addcard_title, mod_kanban{{/str}}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -148,55 +166,109 @@
                     <div id="card-error-alert" class="alert alert-danger d-none py-2 small mb-3"></div>
 
                     <div class="mb-3">
-                        <label for="card-title-input" class="form-label fw-bold">Tên công việc <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="card-title-input" placeholder="Ví dụ: Thiết kế cơ sở dữ liệu" required>
+                        <label for="card-title-input" class="form-label fw-bold">{{#str}}cardname, mod_kanban{{/str}} <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="card-title-input" placeholder="{{#str}}cardname_ph, mod_kanban{{/str}}" required>
                     </div>
 
                     <div class="mb-3">
-                        <label for="card-desc-input" class="form-label fw-semibold">Mô tả chi tiết</label>
-                        <textarea class="form-control" id="card-desc-input" rows="3" placeholder="Ghi chú chi tiết yêu cầu..."></textarea>
+                        <label for="card-desc-input" class="form-label fw-semibold">{{#str}}carddesc, mod_kanban{{/str}}</label>
+                        <textarea class="form-control" id="card-desc-input" rows="3" placeholder="{{#str}}carddesc_ph, mod_kanban{{/str}}"></textarea>
                     </div>
 
                     <div class="mb-3">
                         <div>
                             <label for="card-duedate-input" class="form-label fw-bold text-primary">
-                                <i class="fa fa-calendar"></i> Hạn hoàn thành
+                                <i class="fa fa-calendar"></i> {{#str}}cardduedate, mod_kanban{{/str}}
                             </label>
                             <input type="datetime-local" class="form-control" id="card-duedate-input">
-                            <div class="form-text small text-muted">Chọn ngày và giờ hoàn thành</div>
+                            <div class="form-text small text-muted">{{#str}}cardduedate_help, mod_kanban{{/str}}</div>
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="card-assignee-input" class="form-label fw-semibold">Phân công cho</label>
+                        <label for="card-assignee-input" class="form-label fw-semibold">{{#str}}cardassignee, mod_kanban{{/str}}</label>
                         <select class="form-select" id="card-assignee-input" multiple size="5">
                             {{#assignee_members}}
                                 <option value="{{id}}">{{fullname}}</option>
                             {{/assignee_members}}
                             {{^assignee_members}}
-                                <option value="" disabled>Không có thành viên để phân công</option>
+                                <option value="" disabled>{{#str}}noassignee, mod_kanban{{/str}}</option>
                             {{/assignee_members}}
                         </select>
-                        <div class="form-text small text-muted">Giữ Ctrl/Cmd để chọn nhiều người cùng lúc.</div>
+                        <div class="form-text small text-muted">{{#str}}cardassignee_help, mod_kanban{{/str}}</div>
                     </div>
 
                     <div class="mb-3">
-                            <label for="card-url-input" class="form-label fw-semibold">Đường link đính kèm (URL)</label>
+                            <label for="card-url-input" class="form-label fw-semibold">{{#str}}cardurl, mod_kanban{{/str}}</label>
                             <input type="url" class="form-control" id="card-url-input" placeholder="https://...">
-                            <div class="form-text small text-muted">Có thể điền link tài liệu, mã nguồn, bảng thiết kế...</div>
+                            <div class="form-text small text-muted">{{#str}}cardurl_help, mod_kanban{{/str}}</div>
                     </div>
 
                     <div class="mb-3">
-                            <label for="card-attachments-input" class="form-label fw-semibold">File đính kèm</label>
+                            <label for="card-attachments-input" class="form-label fw-semibold">{{#str}}cardfiles, mod_kanban{{/str}}</label>
                             <input type="file" class="form-control" id="card-attachments-input" name="attachments[]" multiple>
-                            <div class="form-text small text-muted">Có thể chọn nhiều file.</div>
+                            <div class="form-text small text-muted">{{#str}}cardfiles_help, mod_kanban{{/str}}</div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{#str}}btn_cancel, mod_kanban{{/str}}</button>
                 <button type="button" class="btn btn-primary px-4" id="btn-submit-card">
-                    <i class="fa fa-check"></i> Tạo công việc
+                    <i class="fa fa-check"></i> {{#str}}btn_create, mod_kanban{{/str}}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- POPUP MODAL SỬA CÔNG VIỆC (gồm sửa người phụ trách) -->
+<div class="modal fade" id="modalEditCard" tabindex="-1" aria-labelledby="modalEditCardLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="modalEditCardLabel"><i class="fa fa-pencil me-2"></i> {{#str}}editcard, mod_kanban{{/str}}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-edit-card">
+                    <input type="hidden" id="edit-card-id">
+                    <div id="edit-card-error-alert" class="alert alert-danger d-none py-2 small mb-3"></div>
+                    <div class="mb-3">
+                        <label for="edit-card-title-input" class="form-label fw-bold">{{#str}}cardname, mod_kanban{{/str}} <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="edit-card-title-input" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-card-desc-input" class="form-label fw-semibold">{{#str}}carddesc, mod_kanban{{/str}}</label>
+                        <textarea class="form-control" id="edit-card-desc-input" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-card-duedate-input" class="form-label fw-bold text-primary">
+                            <i class="fa fa-calendar"></i> {{#str}}cardduedate, mod_kanban{{/str}}
+                        </label>
+                        <input type="datetime-local" class="form-control" id="edit-card-duedate-input">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-card-assignee-input" class="form-label fw-semibold">{{#str}}cardassignee, mod_kanban{{/str}}</label>
+                        <select class="form-select" id="edit-card-assignee-input" multiple size="5">
+                            {{#assignee_members}}
+                                <option value="{{id}}">{{fullname}}</option>
+                            {{/assignee_members}}
+                            {{^assignee_members}}
+                                <option value="" disabled>{{#str}}noassignee, mod_kanban{{/str}}</option>
+                            {{/assignee_members}}
+                        </select>
+                        <div class="form-text small text-muted">{{#str}}cardassignee_help_edit, mod_kanban{{/str}}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-card-url-input" class="form-label fw-semibold">{{#str}}cardurl, mod_kanban{{/str}}</label>
+                        <input type="url" class="form-control" id="edit-card-url-input" placeholder="https://...">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{#str}}btn_cancel, mod_kanban{{/str}}</button>
+                <button type="button" class="btn btn-warning px-4" id="btn-update-card">
+                    <i class="fa fa-check"></i> {{#str}}btn_save, mod_kanban{{/str}}
                 </button>
             </div>
         </div>
@@ -208,7 +280,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-info text-white">
-                <h5 class="modal-title" id="modalCardDetailLabel"><i class="fa fa-eye me-2"></i> Chi tiết công việc</h5>
+                <h5 class="modal-title" id="modalCardDetailLabel"><i class="fa fa-eye me-2"></i> {{#str}}detail_title, mod_kanban{{/str}}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -219,36 +291,36 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-semibold text-muted">Mô tả:</label>
+                    <label class="form-label fw-semibold text-muted">{{#str}}detail_desc, mod_kanban{{/str}}</label>
                     <div id="detail-card-desc" class="p-2 bg-light rounded" style="min-height: 60px;"></div>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-semibold text-muted">File đính kèm:</label>
+                    <label class="form-label fw-semibold text-muted">{{#str}}detail_files, mod_kanban{{/str}}</label>
                     <div id="detail-card-attachments" class="p-2 bg-light rounded" style="min-height: 40px;"></div>
                 </div>
 
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold text-muted">Người được giao:</label>
+                        <label class="form-label fw-semibold text-muted">{{#str}}detail_assignee, mod_kanban{{/str}}</label>
                         <div id="detail-card-assignee" class="text-dark"></div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold text-muted">Trạng thái:</label>
+                        <label class="form-label fw-semibold text-muted">{{#str}}detail_status, mod_kanban{{/str}}</label>
                         <div id="detail-card-status" class="text-dark"></div>
                     </div>
                 </div>
 
                 <div class="row mb-3">
                     <div class="col-md-12">
-                        <label class="form-label fw-semibold text-muted">Hạn hoàn thành:</label>
+                        <label class="form-label fw-semibold text-muted">{{#str}}detail_duedate, mod_kanban{{/str}}</label>
                         <div id="detail-card-duedate" class="text-dark"></div>
                     </div>
                 </div>
 
                 <!-- Khối đường link đặt ngoài row -->
                 <div id="detail-card-url-container" class="mb-3 d-none">
-                    <label class="form-label fw-semibold text-muted mb-1">Đường link nộp bài:</label>
+                    <label class="form-label fw-semibold text-muted mb-1">{{#str}}detail_url, mod_kanban{{/str}}</label>
                     <div class="p-2 bg-light rounded border">
                         <a id="detail-card-url" href="#" target="_blank" class="fw-bold text-primary text-decoration-underline text-break" style="word-wrap: break-word;"></a>
                     </div>
@@ -257,24 +329,24 @@
                 <div class="alert alert-info d-none" id="detail-card-alert" role="alert"></div>
 
                 <hr>
-                <h6 class="fw-bold"><i class="fa fa-comments me-1"></i> Bình luận của giáo viên</h6>
+                <h6 class="fw-bold"><i class="fa fa-comments me-1"></i> {{#str}}comments_title, mod_kanban{{/str}}</h6>
                 <div id="detail-card-comments" class="mb-3"></div>
-                {{#can_view_dashboard}}
+                {{#can_manage}}
                     <div class="input-group mb-3">
-                        <input type="text" class="form-control" id="detail-card-comment-input" placeholder="Nhập bình luận...">
-                        <button type="button" class="btn btn-primary" id="detail-card-comment-submit" title="Gửi bình luận">
+                        <input type="text" class="form-control" id="detail-card-comment-input" placeholder="{{#str}}comment_ph, mod_kanban{{/str}}">
+                        <button type="button" class="btn btn-primary" id="detail-card-comment-submit" title="{{#str}}comments_title, mod_kanban{{/str}}">
                             <i class="fa fa-send"></i>
                         </button>
                     </div>
-                {{/can_view_dashboard}}
+                {{/can_manage}}
 
                 {{#can_view_dashboard}}
-                    <h6 class="fw-bold"><i class="fa fa-history me-1"></i> Lịch sử thay đổi</h6>
+                    <h6 class="fw-bold"><i class="fa fa-history me-1"></i> {{#str}}history_title, mod_kanban{{/str}}</h6>
                     <div id="detail-card-history" class="small"></div>
                 {{/can_view_dashboard}}
             </div>
             <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{#str}}btn_close, mod_kanban{{/str}}</button>
             </div>
         </div>
     </div>

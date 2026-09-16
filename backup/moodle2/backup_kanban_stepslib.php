@@ -6,7 +6,7 @@ class backup_kanban_activity_structure_step extends backup_activity_structure_st
 
     protected function define_structure() {
         $kanban = new backup_nested_element('kanban', ['id'], [
-            'course', 'creatorid', 'name', 'intro', 'introformat', 'timecreated', 'timemodified'
+            'course', 'assignmentid', 'creatorid', 'name', 'intro', 'introformat', 'timecreated', 'timemodified'
         ]);
 
         $columns = new backup_nested_element('columns');
