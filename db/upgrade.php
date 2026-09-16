@@ -84,5 +84,24 @@ function xmldb_kanban_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026091601, 'kanban');
     }
 
+    if ($oldversion < 2026091602) {
+        // Notification providers and scheduled tasks do not require a schema change.
+        upgrade_mod_savepoint(true, 2026091602, 'kanban');
+    }
+
+    if ($oldversion < 2026091604) {
+        // The student archetype must not retain the teacher dashboard capability
+        // from an earlier plugin version.
+        $studentroles = $DB->get_records('role', ['archetype' => 'student'], '', 'id');
+        foreach ($studentroles as $studentrole) {
+            $DB->delete_records('role_capabilities', [
+                'roleid' => $studentrole->id,
+                'capability' => 'mod/kanban:viewdashboard',
+            ]);
+        }
+
+        upgrade_mod_savepoint(true, 2026091604, 'kanban');
+    }
+
     return true;
 }

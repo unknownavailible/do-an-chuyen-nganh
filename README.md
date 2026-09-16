@@ -254,7 +254,9 @@ Tài liệu chi tiết từng task được lưu trong các file:
 - Quản lý cột đã được bổ sung qua `classes/external/column_api.php`, gồm tạo,
   sửa tên/mô tả/màu/WIP limit, xóa cột rỗng và đổi thứ tự.
 - Sắp xếp vị trí card bằng `newposition` chưa được hỗ trợ đầy đủ.
-- Notification Moodle và scheduled task cảnh báo deadline tự động chưa có.
+- Notification Moodle cho assignment/update/comment/move và scheduled task cảnh báo
+  deadline đã được bổ sung. Người dùng có thể điều chỉnh từng provider trong
+  Preferences > Notification preferences của Moodle.
 - Một số chuỗi trong dashboard và external API vẫn còn hard-code, cần chuyển hết
   sang language string.
 - Dashboard hiện mới có thống kê cơ bản; chưa có biểu đồ và bộ lọc nâng cao.

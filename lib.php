@@ -383,6 +383,70 @@ function kanban_get_group_members_for_assignee_selection($cm) {
     return $result;
 }
 
+function kanban_is_done_column($column, $kanbanid) {
+    global $DB;
+
+    $lastcolumn = $DB->get_record_sql(
+        'SELECT id FROM {kanban_columns} WHERE kanbanid = ? ORDER BY sortorder DESC, id DESC',
+        [$kanbanid],
+        IGNORE_MULTIPLE
+    );
+    return $lastcolumn && (int)$lastcolumn->id === (int)$column->id;
+}
+
+function kanban_notify_card_assignees($card, $cm, $event) {
+    global $DB, $USER;
+
+    if (!get_config('mod_kanban', 'enablenotifications')) {
+        return;
+    }
+
+    $assigneeids = kanban_get_card_assignee_ids($card->id);
+    if (empty($assigneeids)) {
+        return;
+    }
+
+    $kanban = $DB->get_record('kanban', ['id' => $card->kanbanid], '*', MUST_EXIST);
+    $context = context_module::instance($cm->id);
+    $url = new moodle_url('/mod/kanban/view.php', ['id' => $cm->id]);
+    $subjectkey = $event === 'deadline_warning' || $event === 'deadline_overdue'
+        ? 'message_deadline_subject' : ($event === 'assigned'
+            ? 'message_cardassigned_subject' : 'message_cardupdated_subject');
+    $subject = get_string($subjectkey, 'mod_kanban');
+    $message = format_string($card->title) . "\n\n" . format_string($kanban->name);
+    if ($event === 'deadline_warning') {
+        $message .= "\n" . get_string('deadline_warning_message', 'mod_kanban', userdate($card->duedate));
+    } else if ($event === 'deadline_overdue') {
+        $message .= "\n" . get_string('deadline_overdue_message', 'mod_kanban', userdate($card->duedate));
+    } else {
+        $message .= "\n" . get_string('card_updated_message', 'mod_kanban');
+    }
+
+    foreach ($assigneeids as $assigneeid) {
+        if ((int)$assigneeid === (int)$USER->id && $event !== 'deadline_warning' && $event !== 'deadline_overdue') {
+            continue;
+        }
+        $recipient = $DB->get_record('user', ['id' => $assigneeid, 'deleted' => 0]);
+        if (!$recipient) {
+            continue;
+        }
+        $notification = new \core\message\message();
+        $notification->component = 'mod_kanban';
+        $notification->name = $event === 'deadline_warning' || $event === 'deadline_overdue'
+            ? 'deadline' : ($event === 'assigned' ? 'cardassigned' : 'cardupdated');
+        $notification->userfrom = \core_user::get_noreply_user();
+        $notification->userto = $recipient;
+        $notification->subject = $subject;
+        $notification->fullmessage = $message;
+        $notification->fullmessageformat = FORMAT_PLAIN;
+        $notification->smallmessage = $subject . ': ' . format_string($card->title);
+        $notification->notification = 1;
+        $notification->contexturl = $url->out(false);
+        $notification->contexturlname = get_string('pluginname', 'mod_kanban');
+        message_send($notification);
+    }
+}
+
 function kanban_log_card_change($cardid, $action, $details = '') {
     global $DB, $USER;
     $record = new stdClass();

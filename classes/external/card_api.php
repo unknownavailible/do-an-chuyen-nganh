@@ -53,6 +53,7 @@ class card_api extends \core_external\external_api {
         $card->timemodified = time();
         $DB->update_record('kanban_cards', $card);
         kanban_log_card_change($card->id, 'moved', 'Chuyen sang cot ' . $targetcolumn->title);
+        kanban_notify_card_assignees($card, $cm, 'updated');
 
         return ['status' => true, 'message' => 'Di chuyển thẻ thành công'];
     }
@@ -122,6 +123,7 @@ class card_api extends \core_external\external_api {
 
         kanban_check_wip_limit($targetcolumn, $kanban->id);
 
+        $oldassigneeids = kanban_get_card_assignee_ids($card->id);
         $assigneeids = kanban_validate_assignee_list($cm, $params['assignees']);
 
         $card = new stdClass();
@@ -140,6 +142,8 @@ class card_api extends \core_external\external_api {
         $cardid = $DB->insert_record('kanban_cards', $card);
         kanban_set_card_assignees($cardid, $assigneeids, $cm);
         kanban_log_card_change($cardid, 'created', 'Tao the');
+        $card->id = $cardid;
+        kanban_notify_card_assignees($card, $cm, 'assigned');
 
         return [
             'status' => true,
@@ -217,6 +221,11 @@ class card_api extends \core_external\external_api {
 
         kanban_set_card_assignees($card->id, $assigneeids, $cm);
         kanban_log_card_change($card->id, 'updated', 'Cap nhat the');
+        if ($oldassigneeids !== $assigneeids) {
+            kanban_notify_card_assignees($card, $cm, 'assigned');
+        } else {
+            kanban_notify_card_assignees($card, $cm, 'updated');
+        }
 
         return ['status' => true, 'message' => 'Cập nhật thẻ thành công'];
     }
@@ -471,6 +480,7 @@ class card_api extends \core_external\external_api {
         }
         $DB->insert_record('kanban_card_comments', $record);
         kanban_log_card_change($card->id, 'commented', 'Them binh luan cua giao vien');
+        kanban_notify_card_assignees($card, $cm, 'updated');
         return ['status' => true, 'message' => 'Bình luận đã được lưu'];
     }
 

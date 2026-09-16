@@ -65,6 +65,8 @@ $card->timemodified = time();
 $cardid = $DB->insert_record('kanban_cards', $card);
 kanban_set_card_assignees($cardid, $assigneeids, $cm);
 kanban_log_card_change($cardid, 'created', 'Tao the');
+$card->id = $cardid;
+kanban_notify_card_assignees($card, $cm, 'assigned');
 
 // Save uploaded files into file storage under itemid = cardid.
 // PHP can expose multiple uploaded files as either "attachments" or "attachments[]" depending on how the request was built.
