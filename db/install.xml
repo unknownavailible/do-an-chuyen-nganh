@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="mod/kanban/db" VERSION="20260906" COMMENT="XMLDB file for Moodle mod_kanban"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <!-- Bảng 1: Bảng Kanban (Tương đương thông tin cấu hình mở rộng của Courses) -->
+    <TABLE NAME="kanban" COMMENT="Lưu trữ thông tin bài tập Kanban">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="course" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Moodle Course ID"/>
+        <FIELD NAME="creatorid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Moodle user who created the Kanban"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Tên Kanban"/>
+        <FIELD NAME="intro" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Mô tả / Đề cương / Links"/>
+        <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS><KEY NAME="primary" TYPE="primary" FIELDS="id"/></KEYS>
+      <INDEXES><INDEX NAME="course" UNIQUE="false" FIELDS="course"/></INDEXES>
+    </TABLE>
+
+    <!-- Bảng 2: Các cột (Trạng thái Status) -->
+    <TABLE NAME="kanban_columns" COMMENT="Lưu các cột của bảng Kanban (Todo, Doing, Done)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="kanbanid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="title" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="color" TYPE="char" LENGTH="20" NOTNULL="false" DEFAULT="#f4f5f7" SEQUENCE="false"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="5" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="wip_limit" TYPE="int" LENGTH="5" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="fk_kanbanid" TYPE="foreign" FIELDS="kanbanid" REFTABLE="kanban" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+
+    <!-- Bảng 3: Các thẻ công việc (Tasks) - Đã bổ sung theo ý bạn -->
+    <TABLE NAME="kanban_cards" COMMENT="Lưu các task/công việc">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="task_id"/>
+        <FIELD NAME="kanbanid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Thuộc kanban/course nào"/>
+        <FIELD NAME="columnid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Trạng thái Status (Todo/Doing/Done)"/>
+        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="title" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="assigned_to" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" SEQUENCE="false" COMMENT="student_id thực hiện"/>
+        <FIELD NAME="duedate" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" SEQUENCE="false" COMMENT="due_date (Hạn chót)"/>
+        <FIELD NAME="priority" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="medium" SEQUENCE="false"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="5" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="display_order (Thứ tự hiển thị)"/>
+        <FIELD NAME="time_allocated" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" SEQUENCE="false" COMMENT="Thời gian dự kiến (phút)"/>
+        <FIELD NAME="time_spent" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" SEQUENCE="false" COMMENT="Thời gian thực tế làm (phút)"/>
+        <FIELD NAME="task_url" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Link mở chi tiết bên ngoài"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="fk_card_kanban" TYPE="foreign" FIELDS="kanbanid" REFTABLE="kanban" REFFIELDS="id"/>
+        <KEY NAME="fk_card_column" TYPE="foreign" FIELDS="columnid" REFTABLE="kanban_columns" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+
+    <TABLE NAME="kanban_card_assignees" COMMENT="Lưu danh sách người được giao công việc trên card">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="cardid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="fk_card_assignee_card" TYPE="foreign" FIELDS="cardid" REFTABLE="kanban_cards" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="card_user_unique" UNIQUE="true" FIELDS="cardid, userid"/>
+      </INDEXES>
+    </TABLE>
+
+    <!-- Bảng 4: Thành viên & Tự đánh giá (Course_Members mapping) -->
+    <TABLE NAME="kanban_members" COMMENT="Lưu vai trò và tự đánh giá của SV">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="kanbanid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="student_id"/>
+        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="student_role" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="Vai trò (Trưởng nhóm, Thành viên...)"/>
+        <FIELD NAME="self_evaluation" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="SV tự đánh giá"/>
+        <FIELD NAME="is_evaluated" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Boolean (0 = false, 1 = true)"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="fk_member_kanban" TYPE="foreign" FIELDS="kanbanid" REFTABLE="kanban" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+
+    <!-- Các bảng bổ trợ (Bình luận, Lịch sử) -->
+    <TABLE NAME="kanban_card_comments" COMMENT="Binh luan cua giao vien tren the">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="cardid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="comment" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS><KEY NAME="primary" TYPE="primary" FIELDS="id"/></KEYS>
+    </TABLE>
+
+    <TABLE NAME="kanban_card_history" COMMENT="Lich su thay doi cua the">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="cardid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="action" TYPE="char" LENGTH="30" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="details" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS><KEY NAME="primary" TYPE="primary" FIELDS="id"/></KEYS>
+    </TABLE>
+  </TABLES>
+</XMLDB>

@@ -1,0 +1,262 @@
+<div class="kanban-board-container my-3" data-cmid="{{cmid}}" data-kanbanid="{{kanbanid}}">
+    <!-- Nút Dashboard cho Giảng viên -->
+    {{#can_view_dashboard}}
+        <div class="d-flex justify-content-end mb-3">
+            <a href="{{dashboard_url}}" class="btn btn-primary shadow-sm px-3 py-2 fw-semibold">
+                <i class="fa fa-bar-chart me-2"></i> {{#str}}dashboard, mod_kanban{{/str}}
+            </a>
+        </div>
+    {{/can_view_dashboard}}
+
+    {{#intro}}
+        <div class="card mb-4 shadow-sm border-0">
+            <div class="card-body bg-light rounded">
+                {{{intro}}}
+            </div>
+        </div>
+    {{/intro}}
+
+    <div class="text-muted small mb-3">
+        <i class="fa fa-user me-1"></i> Người tạo: <strong>{{creatorname}}</strong>
+    </div>
+
+    <!-- Hàng các Cột Kanban -->
+    <div class="kanban-board pb-4" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; width: 100%; min-height: 550px; align-items: stretch;">
+        {{#columns}}
+            <div class="kanban-column card shadow-sm border-0" style="display: flex; flex-direction: column; min-width: 0; background-color: {{color}};" data-columnid="{{id}}">
+                <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-bottom-0 pb-1 pt-3">
+                    <h6 class="card-title fw-bold mb-0 text-dark">{{title}}</h6>
+                    <span class="badge bg-secondary rounded-pill px-2 py-1">{{card_count}}{{#wip_limit}} / {{wip_limit}}{{/wip_limit}}</span>
+                </div>
+
+                <div class="card-body kanban-card-list p-2 d-flex flex-column gap-2" style="flex: 1 1 auto; min-height: 380px;" data-columnid="{{id}}">
+                    {{#cards}}
+                        <div class="kanban-card card shadow-sm border-0 p-3 position-relative" draggable="true" data-cardid="{{id}}" data-columntitle="{{column_title}}" data-submissionurl="{{submissionurl}}" data-assignees="{{assignee_names}}" style="margin-bottom: 14px; background-color: #ffffff; border-radius: 6px;">
+                            <!-- Header thẻ và nút xóa -->
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    {{#has_feedback}}
+                                        <span class="badge bg-warning text-dark px-2" style="font-size: 0.68rem;" title="Có phản hồi của giáo viên">
+                                            <i class="fa fa-commenting"></i> Phản hồi
+                                        </span>
+                                    {{/has_feedback}}
+                                </div>
+                                {{#can_manage}}
+                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 btn-delete-card" data-cardid="{{id}}" title="Xóa công việc">
+                                        <i class="fa fa-trash-o"></i>
+                                    </button>
+                                {{/can_manage}}
+                            </div>
+
+                            <!-- Tiêu đề thẻ -->
+                            <div class="fw-bold text-dark mb-1">{{title}}</div>
+
+                            <!-- Mô tả thẻ -->
+                            {{#description}}
+                                <div class="text-muted small text-truncate mb-2">{{{description}}}</div>
+                            {{/description}}
+
+                            <div class="small text-muted mb-2">
+                                <i class="fa fa-user-circle me-1"></i>
+                                {{#assignee_names}}
+                                    {{assignee_names}}
+                                {{/assignee_names}}
+                                {{^assignee_names}}
+                                    Chưa phân công
+                                {{/assignee_names}}
+                            </div>
+
+                            <!-- Cảnh báo thời gian / Hạn hoàn thành -->
+                            {{#duedate_formatted}}
+                                <div class="mt-2 pt-2 border-top">
+                                    {{#is_overdue}}
+                                        <span class="badge bg-danger text-white w-100 py-1" title="Đã quá hạn!">
+                                            <i class="fa fa-exclamation-triangle"></i> Quá hạn: {{duedate_formatted}}
+                                        </span>
+                                    {{/is_overdue}}
+                                    {{#is_due_soon}}
+                                        <span class="badge bg-warning text-dark w-100 py-1" title="Sắp đến hạn nộp!">
+                                            <i class="fa fa-clock-o"></i> Sắp đến hạn: {{duedate_formatted}}
+                                        </span>
+                                    {{/is_due_soon}}
+                                    {{^is_overdue}}
+                                        {{^is_due_soon}}
+                                            <small class="text-muted"><i class="fa fa-calendar"></i> {{duedate_formatted}}</small>
+                                        {{/is_due_soon}}
+                                    {{/is_overdue}}
+                                </div>
+                            {{/duedate_formatted}}
+
+                            <button type="button" class="btn btn-sm btn-outline-info w-100 mt-2 btn-view-card" data-cardid="{{id}}">
+                                <i class="fa fa-eye me-1"></i> Xem chi tiết
+                            </button>
+                        </div>
+                    {{/cards}}
+
+                    {{^has_cards}}
+                        <div class="empty-column-placeholder text-center text-muted py-4 small">
+                            <i class="fa fa-inbox fa-2x mb-2 d-block opacity-50"></i>
+                            Chưa có công việc nào
+                        </div>
+                    {{/has_cards}}
+                </div>
+
+                {{#can_manage}}
+                    <div class="card-footer bg-transparent border-top-0 pt-0 pb-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary w-100 btn-open-modal" data-columnid="{{id}}" data-columntitle="{{title}}" style="border-radius: 6px;">
+                            <i class="fa fa-plus"></i> {{#str}}addcard, mod_kanban{{/str}}
+                        </button>
+                    </div>
+                {{/can_manage}}
+            </div>
+        {{/columns}}
+    </div>
+</div>
+
+<!-- POPUP MODAL THÊM CÔNG VIỆC MỚI KÈM KIỂM TRA THỜI GIAN -->
+<div class="modal fade" id="modalAddCard" tabindex="-1" aria-labelledby="modalAddCardLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalAddCardLabel"><i class="fa fa-plus-circle me-2"></i> Thêm công việc mới</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-add-card">
+                    <input type="hidden" id="card-column-id">
+
+                    <!-- Thông báo lỗi khi validate ngày tháng -->
+                    <div id="card-error-alert" class="alert alert-danger d-none py-2 small mb-3"></div>
+
+                    <div class="mb-3">
+                        <label for="card-title-input" class="form-label fw-bold">Tên công việc <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="card-title-input" placeholder="Ví dụ: Thiết kế cơ sở dữ liệu" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="card-desc-input" class="form-label fw-semibold">Mô tả chi tiết</label>
+                        <textarea class="form-control" id="card-desc-input" rows="3" placeholder="Ghi chú chi tiết yêu cầu..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <div>
+                            <label for="card-duedate-input" class="form-label fw-bold text-primary">
+                                <i class="fa fa-calendar"></i> Hạn hoàn thành
+                            </label>
+                            <input type="datetime-local" class="form-control" id="card-duedate-input">
+                            <div class="form-text small text-muted">Chọn ngày và giờ hoàn thành</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="card-assignee-input" class="form-label fw-semibold">Phân công cho</label>
+                        <select class="form-select" id="card-assignee-input" multiple size="5">
+                            {{#assignee_members}}
+                                <option value="{{id}}">{{fullname}}</option>
+                            {{/assignee_members}}
+                            {{^assignee_members}}
+                                <option value="" disabled>Không có thành viên để phân công</option>
+                            {{/assignee_members}}
+                        </select>
+                        <div class="form-text small text-muted">Giữ Ctrl/Cmd để chọn nhiều người cùng lúc.</div>
+                    </div>
+
+                    <div class="mb-3">
+                            <label for="card-url-input" class="form-label fw-semibold">Đường link đính kèm (URL)</label>
+                            <input type="url" class="form-control" id="card-url-input" placeholder="https://...">
+                            <div class="form-text small text-muted">Có thể điền link tài liệu, mã nguồn, bảng thiết kế...</div>
+                    </div>
+
+                    <div class="mb-3">
+                            <label for="card-attachments-input" class="form-label fw-semibold">File đính kèm</label>
+                            <input type="file" class="form-control" id="card-attachments-input" name="attachments[]" multiple>
+                            <div class="form-text small text-muted">Có thể chọn nhiều file.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary px-4" id="btn-submit-card">
+                    <i class="fa fa-check"></i> Tạo công việc
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL XEM CHI TIẾT CÔNG VIỆC -->
+<div class="modal fade" id="modalCardDetail" tabindex="-1" aria-labelledby="modalCardDetailLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="modalCardDetailLabel"><i class="fa fa-eye me-2"></i> Chi tiết công việc</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <h5 id="detail-card-title" class="fw-bold text-dark mb-3"></h5>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">Mô tả:</label>
+                    <div id="detail-card-desc" class="p-2 bg-light rounded" style="min-height: 60px;"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-muted">File đính kèm:</label>
+                    <div id="detail-card-attachments" class="p-2 bg-light rounded" style="min-height: 40px;"></div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-muted">Người được giao:</label>
+                        <div id="detail-card-assignee" class="text-dark"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-muted">Trạng thái:</label>
+                        <div id="detail-card-status" class="text-dark"></div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold text-muted">Hạn hoàn thành:</label>
+                        <div id="detail-card-duedate" class="text-dark"></div>
+                    </div>
+                </div>
+
+                <!-- Khối đường link đặt ngoài row -->
+                <div id="detail-card-url-container" class="mb-3 d-none">
+                    <label class="form-label fw-semibold text-muted mb-1">Đường link nộp bài:</label>
+                    <div class="p-2 bg-light rounded border">
+                        <a id="detail-card-url" href="#" target="_blank" class="fw-bold text-primary text-decoration-underline text-break" style="word-wrap: break-word;"></a>
+                    </div>
+                </div>
+
+                <div class="alert alert-info d-none" id="detail-card-alert" role="alert"></div>
+
+                <hr>
+                <h6 class="fw-bold"><i class="fa fa-comments me-1"></i> Bình luận của giáo viên</h6>
+                <div id="detail-card-comments" class="mb-3"></div>
+                {{#can_view_dashboard}}
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="detail-card-comment-input" placeholder="Nhập bình luận...">
+                        <button type="button" class="btn btn-primary" id="detail-card-comment-submit" title="Gửi bình luận">
+                            <i class="fa fa-send"></i>
+                        </button>
+                    </div>
+                {{/can_view_dashboard}}
+
+                {{#can_view_dashboard}}
+                    <h6 class="fw-bold"><i class="fa fa-history me-1"></i> Lịch sử thay đổi</h6>
+                    <div id="detail-card-history" class="small"></div>
+                {{/can_view_dashboard}}
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
