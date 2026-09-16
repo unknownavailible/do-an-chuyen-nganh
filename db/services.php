@@ -2,6 +2,34 @@
 defined('MOODLE_INTERNAL') || die();
 
 $functions = [
+    'mod_kanban_create_column' => [
+        'classname' => 'mod_kanban\\external\\column_api',
+        'methodname' => 'create_column',
+        'description' => 'Tạo cột Kanban',
+        'type' => 'write',
+        'ajax' => true,
+    ],
+    'mod_kanban_update_column' => [
+        'classname' => 'mod_kanban\\external\\column_api',
+        'methodname' => 'update_column',
+        'description' => 'Cập nhật cột Kanban',
+        'type' => 'write',
+        'ajax' => true,
+    ],
+    'mod_kanban_delete_column' => [
+        'classname' => 'mod_kanban\\external\\column_api',
+        'methodname' => 'delete_column',
+        'description' => 'Xóa cột Kanban',
+        'type' => 'write',
+        'ajax' => true,
+    ],
+    'mod_kanban_reorder_columns' => [
+        'classname' => 'mod_kanban\\external\\column_api',
+        'methodname' => 'reorder_columns',
+        'description' => 'Sắp xếp cột Kanban',
+        'type' => 'write',
+        'ajax' => true,
+    ],
     // 1. Service di chuyển thẻ khi kéo thả
     'mod_kanban_move_card' => [
         'classname'   => 'mod_kanban\external\card_api',

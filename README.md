@@ -251,7 +251,8 @@ Tài liệu chi tiết từng task được lưu trong các file:
 
 ### 2.3. Các hạng mục còn có thể cải thiện
 
-- Quản lý cột qua external API riêng (tạo, sửa, xóa, đổi thứ tự) chưa được triển khai.
+- Quản lý cột đã được bổ sung qua `classes/external/column_api.php`, gồm tạo,
+  sửa tên/mô tả/màu/WIP limit, xóa cột rỗng và đổi thứ tự.
 - Sắp xếp vị trí card bằng `newposition` chưa được hỗ trợ đầy đủ.
 - Notification Moodle và scheduled task cảnh báo deadline tự động chưa có.
 - Một số chuỗi trong dashboard và external API vẫn còn hard-code, cần chuyển hết
@@ -270,7 +271,8 @@ mod/kanban/
 │       ├── board.min.js          # JavaScript đã minify
 │       └── board.min.js.map      # Source map
 ├── classes/external/
-│   └── card_api.php              # External functions cho card
+│   ├── card_api.php              # External functions cho card
+│   └── column_api.php            # External functions quản lý column
 ├── db/
 │   ├── access.php                # Capability
 │   ├── install.xml               # Schema XMLDB
@@ -446,7 +448,6 @@ Chi tiết build và cảnh báo ESLint hiện tại nằm trong `TASK7_AMD_BUIL
 
 ## 9. Hạng mục còn lại
 
-- Bổ sung external API quản lý column: tạo, sửa, xóa và đổi thứ tự.
 - Hỗ trợ `newposition` để sắp xếp card ổn định trong cùng column.
 - Bổ sung notification Moodle và scheduled task cảnh báo deadline.
 - Chuyển các chuỗi hard-code còn lại sang language pack.

@@ -74,5 +74,15 @@ function xmldb_kanban_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026091203, 'kanban');
     }
 
+    if ($oldversion < 2026091601) {
+        $table = new xmldb_table('kanban_columns');
+        $field = new xmldb_field('description', XMLDB_TYPE_TEXT, null, null, null, null, null, 'title');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026091601, 'kanban');
+    }
+
     return true;
 }

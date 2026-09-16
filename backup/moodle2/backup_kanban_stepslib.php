@@ -11,7 +11,7 @@ class backup_kanban_activity_structure_step extends backup_activity_structure_st
 
         $columns = new backup_nested_element('columns');
         $column = new backup_nested_element('column', ['id'], [
-            'kanbanid', 'title', 'color', 'sortorder', 'wip_limit'
+            'kanbanid', 'title', 'description', 'color', 'sortorder', 'wip_limit'
         ]);
 
         $cards = new backup_nested_element('cards');

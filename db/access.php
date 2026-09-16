@@ -11,7 +11,6 @@ $capabilities = [
             'editingteacher' => CAP_ALLOW,
             'manager' => CAP_ALLOW,
         ],
-    ],
 
     // Quyền xem bảng Kanban (Giảng viên và Sinh viên đều được xem)
     'mod/kanban:view' => [
@@ -32,6 +31,18 @@ $capabilities = [
             'student' => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
         ],
+    ],
+
+    // Quyền tạo, sửa, xóa và sắp xếp các cột Kanban.
+    'mod/kanban:managecolumns' => [
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes' => [
+            'teacher' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+    ],
     ],
 
     // Quyền xem Dashboard thống kê tiến độ nhóm (Dành cho Giảng viên)

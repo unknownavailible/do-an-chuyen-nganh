@@ -20,13 +20,32 @@
         <i class="fa fa-user me-1"></i> Người tạo: <strong>{{creatorname}}</strong>
     </div>
 
+    {{#can_manage_columns}}
+        <div class="d-flex justify-content-end mb-3">
+            <button type="button" class="btn btn-outline-primary btn-sm btn-add-column">
+                <i class="fa fa-plus"></i> Thêm cột
+            </button>
+        </div>
+    {{/can_manage_columns}}
+
     <!-- Hàng các Cột Kanban -->
     <div class="kanban-board pb-4" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; width: 100%; min-height: 550px; align-items: stretch;">
         {{#columns}}
             <div class="kanban-column card shadow-sm border-0" style="display: flex; flex-direction: column; min-width: 0; background-color: {{color}};" data-columnid="{{id}}">
                 <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-bottom-0 pb-1 pt-3">
-                    <h6 class="card-title fw-bold mb-0 text-dark">{{title}}</h6>
-                    <span class="badge bg-secondary rounded-pill px-2 py-1">{{card_count}}{{#wip_limit}} / {{wip_limit}}{{/wip_limit}}</span>
+                    <div>
+                        <h6 class="card-title fw-bold mb-0 text-dark">{{title}}</h6>
+                        {{#description}}<small class="text-muted">{{description}}</small>{{/description}}
+                    </div>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="badge bg-secondary rounded-pill px-2 py-1">{{card_count}}{{#wip_limit}} / {{wip_limit}}{{/wip_limit}}</span>
+                        {{#can_manage_columns}}
+                            <button type="button" class="btn btn-sm btn-link p-0 btn-edit-column" data-columnid="{{id}}" data-title="{{title}}" data-description="{{description}}" data-color="{{color}}" data-wip="{{wip_limit}}" title="Sửa cột"><i class="fa fa-pencil"></i></button>
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0 btn-delete-column" data-columnid="{{id}}" data-title="{{title}}" title="Xóa cột"><i class="fa fa-trash-o"></i></button>
+                            <button type="button" class="btn btn-sm btn-link p-0 btn-move-column" data-columnid="{{id}}" data-direction="-1" title="Đưa sang trái"><i class="fa fa-arrow-left"></i></button>
+                            <button type="button" class="btn btn-sm btn-link p-0 btn-move-column" data-columnid="{{id}}" data-direction="1" title="Đưa sang phải"><i class="fa fa-arrow-right"></i></button>
+                        {{/can_manage_columns}}
+                    </div>
                 </div>
 
                 <div class="card-body kanban-card-list p-2 d-flex flex-column gap-2" style="flex: 1 1 auto; min-height: 380px;" data-columnid="{{id}}">

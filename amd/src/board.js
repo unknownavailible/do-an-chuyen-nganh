@@ -71,10 +71,17 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
             var errorAlert = document.getElementById('card-error-alert');
             var attachmentsInput = document.getElementById('card-attachments-input');
 
+            /**
+             * Opens the card creation modal for a column.
+             *
+             * @param {number} columnId Column identifier.
+             */
             function openModal(columnId) {
                 // re-query modal in case it wasn't in DOM at init time
                 modal = document.getElementById('modalAddCard');
-                if (!modal) return;
+                if (!modal) {
+                    return;
+                }
                 var colInput = document.getElementById('card-column-id');
                 if (colInput) {
                     colInput.value = columnId;
@@ -112,8 +119,13 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 }
             }
 
+            /**
+             * Closes the card creation modal.
+             */
             function closeModal() {
-                if (!modal) return;
+                if (!modal) {
+                    return;
+                }
                 modal.style.display = 'none';
                 modal.classList.remove('show');
                 document.body.classList.remove('modal-open');
@@ -128,11 +140,20 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
             // ==========================================
             var detailModal = null;
 
+            /**
+             * Opens the detail modal and loads card activity.
+             *
+             * @param {HTMLElement} cardElement Card element.
+             */
             function openDetailModal(cardElement) {
-                if (isDragging) return;
+                if (isDragging) {
+                    return;
+                }
 
                 detailModal = document.getElementById('modalCardDetail');
-                if (!detailModal) return;
+                if (!detailModal) {
+                    return;
+                }
 
                 var cardId = cardElement.dataset.cardid;
                 detailModal.dataset.cardid = cardId;
@@ -170,17 +191,23 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                     methodname: 'mod_kanban_get_card_files',
                     args: {cardid: parseInt(cardId), cmid: parseInt(cmid)}
                 }])[0].done(function(response) {
-                    if (!attachmentsEl) return;
+                    if (!attachmentsEl) {
+                        return;
+                    }
                     if (!response.files || !response.files.length) {
                         attachmentsEl.innerHTML = '<span class="text-muted">Chưa có file đính kèm.</span>';
                         return;
                     }
                     attachmentsEl.innerHTML = response.files.map(function(file) {
                         var deleteButton = '';
-                        if (window.MOODLE || true) {
-                            deleteButton = '<button type="button" class="btn btn-link btn-sm text-danger p-0 ms-2 delete-card-file" data-filehash="' + escapeHtml(file.hash) + '" data-cardid="' + cardId + '" title="Xóa file"><i class="fa fa-trash"></i></button>';
-                        }
-                        return '<div class="d-flex align-items-center justify-content-between border-bottom py-2"><a href="' + escapeHtml(file.url) + '" target="_blank" class="text-primary text-decoration-underline me-2">' + escapeHtml(file.filename) + '</a><small class="text-muted">(' + (file.size || 0) + ' bytes)</small>' + deleteButton + '</div>';
+                        deleteButton = '<button type="button" class="btn btn-link btn-sm text-danger p-0 ms-2 ' +
+                            'delete-card-file" data-filehash="' + escapeHtml(file.hash) + '" data-cardid="' +
+                            cardId + '" title="Xóa file"><i class="fa fa-trash"></i></button>';
+                        return '<div class="d-flex align-items-center justify-content-between border-bottom py-2">' +
+                            '<a href="' + escapeHtml(file.url) + '" target="_blank" ' +
+                            'class="text-primary text-decoration-underline me-2">' +
+                            escapeHtml(file.filename) + '</a><small class="text-muted">(' +
+                            (file.size || 0) + ' bytes)</small>' + deleteButton + '</div>';
                     }).join('');
                 }).fail(function() {
                     if (attachmentsEl) {
@@ -215,7 +242,8 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 document.getElementById('detail-card-desc').textContent = desc || 'Không có mô tả';
                 document.getElementById('detail-card-assignee').textContent = cardElement.dataset.assignees || 'Chưa phân công';
                 document.getElementById('detail-card-duedate').textContent = duedateText || 'Không có hạn hoàn thành';
-                document.getElementById('detail-card-status').textContent = cardElement.dataset.columntitle || 'Không xác định';
+                document.getElementById('detail-card-status').textContent =
+                    cardElement.dataset.columntitle || 'Không xác định';
 
                 // Xử lý hiển thị đường link
                 var submissionUrl = cardElement.dataset.submissionurl;
@@ -252,14 +280,25 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 }
             }
 
+            /**
+             * Escapes text before inserting it into HTML.
+             *
+             * @param {string} value Text to escape.
+             * @returns {string} Escaped HTML.
+             */
             function escapeHtml(value) {
                 var div = document.createElement('div');
                 div.textContent = value || '';
                 return div.innerHTML;
             }
 
+            /**
+             * Closes the card detail modal.
+             */
             function closeDetailModal() {
-                if (!detailModal) return;
+                if (!detailModal) {
+                    return;
+                }
                 detailModal.style.display = 'none';
                 detailModal.classList.remove('show');
                 document.body.classList.remove('modal-open');
@@ -271,7 +310,9 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
 
             // Thêm click handler cho các card (xem chi tiết)
             document.addEventListener('click', function(e) {
-                if (isDragging) return;
+                if (isDragging) {
+                    return;
+                }
 
                 var viewButton = e.target.closest && e.target.closest('.btn-view-card');
                 if (viewButton) {
@@ -285,7 +326,8 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 }
 
                 var card = e.target.closest && e.target.closest('.kanban-card');
-                if (card && !e.target.closest('.btn-delete-card') && !e.target.closest('.btn-view-card') && !e.target.closest('.badge')) {
+                if (card && !e.target.closest('.btn-delete-card') &&
+                    !e.target.closest('.btn-view-card') && !e.target.closest('.badge')) {
                     openDetailModal(card);
                     return;
                 }
@@ -293,29 +335,41 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
 
             document.addEventListener('click', function(e) {
                 var submit = e.target.closest && e.target.closest('#detail-card-comment-submit');
-                if (!submit) return;
+                if (!submit) {
+                    return;
+                }
                 var input = document.getElementById('detail-card-comment-input');
                 var cardId = detailModal.dataset.cardid;
                 var card = document.querySelector('.kanban-card[data-cardid="' + cardId + '"]');
-                if (!input.value.trim() || !cardId) return;
+                if (!input.value.trim() || !cardId) {
+                    return;
+                }
                 ajax.call([{
                     methodname: 'mod_kanban_add_teacher_comment',
                     args: {cardid: parseInt(cardId), cmid: parseInt(cmid), comment: input.value.trim()}
                 }])[0].done(function() {
                     input.value = '';
-                    if (card) openDetailModal(card);
+                    if (card) {
+                        openDetailModal(card);
+                    }
                 }).fail(notification.exception);
             });
 
             document.addEventListener('click', function(e) {
                 var deleteFileBtn = e.target.closest && e.target.closest('.delete-card-file');
-                if (!deleteFileBtn) return;
+                if (!deleteFileBtn) {
+                    return;
+                }
                 e.preventDefault();
                 e.stopPropagation();
                 var fileHash = deleteFileBtn.dataset.filehash;
                 var cardId = deleteFileBtn.dataset.cardid;
-                if (!fileHash || !cardId) return;
-                if (!confirm('Bạn có chắc muốn xóa file đính kèm này không?')) return;
+                if (!fileHash || !cardId) {
+                    return;
+                }
+                if (!confirm('Bạn có chắc muốn xóa file đính kèm này không?')) {
+                    return;
+                }
                 ajax.call([{
                     methodname: 'mod_kanban_delete_card_file',
                     args: {cardid: parseInt(cardId), cmid: parseInt(cmid), filehash: fileHash}
@@ -329,7 +383,9 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
 
             // Đóng detail modal
             document.addEventListener('click', function(e) {
-                if (isDragging) return;
+                if (isDragging) {
+                    return;
+                }
                 var closeBtn = e.target.closest && e.target.closest('#modalCardDetail .btn-close, #modalCardDetail .btn-secondary');
                 if (closeBtn) {
                     closeDetailModal();
@@ -354,16 +410,15 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                     return;
                 }
 
-                var dismissAdd = e.target.closest && e.target.closest('#modalAddCard [data-bs-dismiss="modal"], #modalAddCard .btn-close, #modalAddCard .modal .btn-secondary');
+                var dismissAdd = e.target.closest && e.target.closest(
+                    '#modalAddCard [data-bs-dismiss="modal"], #modalAddCard .btn-close, ' +
+                    '#modalAddCard .modal .btn-secondary'
+                );
                 if (dismissAdd) {
                     closeModal();
                     return;
                 }
 
-                var submit = e.target.closest && e.target.closest('#btn-submit-card');
-                if (submit) {
-                    // no-op here: submit handler below will handle it when bound
-                }
             });
 
             // ==========================================
@@ -409,7 +464,6 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                         duedateTimestamp = Math.floor(selectedDate.getTime() / 1000);
                     }
 
-                    
                     var submissionUrl = document.getElementById('card-url-input').value.trim();
                     var formData = new FormData();
                     formData.append('kanbanid', kanbanid);
@@ -447,6 +501,110 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                     });
                 });
             }
+
+            /**
+             * Calls a column management external function.
+             *
+             * @param {string} methodname External function name.
+             * @param {Object} args External function arguments.
+             * @returns {Promise} Moodle AJAX request.
+             */
+            function columnRequest(methodname, args) {
+                args.cmid = parseInt(cmid);
+                return ajax.call([{methodname: methodname, args: args}])[0];
+            }
+
+            /**
+             * Gets column IDs in their current visual order.
+             *
+             * @returns {number[]} Column identifiers.
+             */
+            function getColumnIds() {
+                return Array.from(document.querySelectorAll('.kanban-column')).map(function(column) {
+                    return parseInt(column.dataset.columnid, 10);
+                });
+            }
+
+            document.addEventListener('click', function(e) {
+                var addButton = e.target.closest && e.target.closest('.btn-add-column');
+                var editButton = e.target.closest && e.target.closest('.btn-edit-column');
+                var deleteButton = e.target.closest && e.target.closest('.btn-delete-column');
+                var moveButton = e.target.closest && e.target.closest('.btn-move-column');
+
+                if (addButton || editButton) {
+                    var editing = !!editButton;
+                    var data = editing ? editButton.dataset : {};
+                    var title = prompt('Tên cột:', data.title || '');
+                    if (title === null) {
+                        return;
+                    }
+                    var description = prompt('Mô tả cột:', data.description || '');
+                    if (description === null) {
+                        return;
+                    }
+                    var color = prompt('Màu cột dạng #RRGGBB:', data.color || '#f4f5f7');
+                    if (color === null) {
+                        return;
+                    }
+                    var wip = prompt('WIP limit (0 = không giới hạn):', data.wip || '0');
+                    if (wip === null) {
+                        return;
+                    }
+                    var request;
+                    if (editing) {
+                        request = columnRequest('mod_kanban_update_column', {
+                            columnid: parseInt(data.columnid),
+                            title: title,
+                            description: description,
+                            color: color,
+                            wip_limit: parseInt(wip, 10)
+                        });
+                    } else {
+                        request = columnRequest('mod_kanban_create_column', {
+                            kanbanid: parseInt(kanbanid),
+                            title: title,
+                            description: description,
+                            color: color,
+                            wip_limit: parseInt(wip, 10)
+                        });
+                    }
+                    request.done(function() {
+                        window.location.reload();
+                    }).fail(notification.exception);
+                    return;
+                }
+
+                if (deleteButton) {
+                    if (!confirm('Xóa cột "' + deleteButton.dataset.title +
+                        '"? Cột phải rỗng mới được xóa.')) {
+                        return;
+                    }
+                    columnRequest('mod_kanban_delete_column', {
+                        columnid: parseInt(deleteButton.dataset.columnid)
+                    }).done(function() {
+                        window.location.reload();
+                    }).fail(notification.exception);
+                    return;
+                }
+
+                if (moveButton) {
+                    var ids = getColumnIds();
+                    var columnId = parseInt(moveButton.dataset.columnid);
+                    var index = ids.indexOf(columnId);
+                    var target = index + parseInt(moveButton.dataset.direction, 10);
+                    if (index < 0 || target < 0 || target >= ids.length) {
+                        return;
+                    }
+                    var moved = ids.splice(index, 1)[0];
+                    ids.splice(target, 0, moved);
+                    columnRequest('mod_kanban_reorder_columns', {
+                        kanbanid: parseInt(kanbanid),
+                        columnids: ids
+                    }).done(function() {
+                        window.location.reload();
+                    }).fail(notification.exception);
+                }
+            });
 
             // ==========================================
             // 4. XỬ LÝ XÓA THẺ

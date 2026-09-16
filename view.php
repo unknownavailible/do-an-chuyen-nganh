@@ -61,6 +61,7 @@ foreach ($columns as $col) {
         'id' => $col->id,
         'title' => format_string($col->title),
         'color' => $col->color,
+        'description' => format_text($col->description ?? '', FORMAT_PLAIN),
         'card_count' => count($card_list),
         'wip_limit' => $col->wip_limit,
         'has_cards' => !empty($card_list),
@@ -75,6 +76,8 @@ $templatecontext = [
     'creatorname' => $creator ? fullname($creator) : get_string('unknowncreator', 'mod_kanban'),
     'intro' => format_module_intro('kanban', $kanban, $cm->id),
     'can_manage' => has_capability('mod/kanban:managecards', $context),
+    'can_manage_columns' => has_capability('mod/kanban:managecolumns', $context) ||
+        has_capability('mod/kanban:viewdashboard', $context),
     'can_view_dashboard' => has_capability('mod/kanban:viewdashboard', $context),
     'dashboard_url' => (new moodle_url('/mod/kanban/dashboard.php', ['id' => $cm->id]))->out(),
     'assignee_members' => kanban_get_group_members_for_assignee_selection($cm),
