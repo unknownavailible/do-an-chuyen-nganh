@@ -1,0 +1,278 @@
+CAC PHAN CAN BO SUNG VA CAI THIEN CHO DO AN MO DUN KANBAN
+================================================================
+
+I. TONG QUAN
+------------
+
+Mo dun Kanban da hoan thanh phan lon cac chuc nang cot loi: tao bang
+Kanban, tao va quan ly card, keo tha card, phan cong thanh vien, deadline,
+tep dinh kem, binh luan, lich su thay doi, phan quyen theo group,
+backup/restore va mot so kiem thu PHPUnit/Behat.
+
+Tuy nhien, de phu hop day du voi de cuong do an, can bo sung hoac hoan
+thien cac noi dung duoi day.
+
+
+II. CAC CHUC NANG CON THIEU
+---------------------------
+
+1. Quan ly cot Kanban
+
+- Cho phep giao vien tao cot moi.
+- Cho phep giao vien sua ten cot, mau sac va mo ta cot.
+- Cho phep giao vien xoa cot.
+- Cho phep thay doi thu tu cac cot.
+- Cho phep cau hinh WIP limit cho tung cot.
+- Xu ly cac card dang nam trong cot khi cot bi xoa.
+- Them external API rieng cho cac thao tac tao, sua, xoa va sap xep cot.
+
+Ly do can bo sung:
+Hien tai he thong chu yeu tao ba cot mac dinh To Do, In Progress va Done.
+De cuong co noi dung thiet ke bang Kanban co kha nang cau hinh, vi vay can
+co giao dien quan ly cot thay vi chi su dung cot mac dinh.
+
+
+2. Sap xep vi tri card
+
+- Ho tro day du truong newposition.
+- Luu thu tu card khi keo card trong cung mot cot.
+- Luu thu tu card khi di chuyen card sang cot khac.
+- Hien thi dung thu tu card sau khi tai lai trang.
+- Dam bao thu tu duoc cap nhat dung khi co nhieu nguoi cung thao tac.
+
+Ly do can bo sung:
+Chuc nang keo tha hien da hoat dong, nhung viec luu thu tu card trong cung
+mot cot chua duoc ho tro day du. Neu khong luu thu tu, vi tri card co the
+bi thay doi sau khi tai lai bang.
+
+
+3. Thong bao va canh bao deadline
+
+- Gui thong bao Moodle khi card duoc giao cho thanh vien.
+- Gui thong bao khi assignee bi thay doi.
+- Gui thong bao khi card duoc di chuyen sang cot moi.
+- Gui thong bao khi co binh luan moi.
+- Gui thong bao truoc khi card den han.
+- Gui thong bao khi card bi qua han.
+- Tao scheduled task de tu dong kiem tra deadline.
+- Cho phep nguoi dung theo doi hoac tat mot so loai thong bao neu can.
+
+Ly do can bo sung:
+Hien tai giao dien da hien thi card sap den han va qua han, nhung chua co
+co che gui thong bao tu dong. De cuong co noi dung tich hop thong bao va
+canh bao tre han, do do day la phan can uu tien cao.
+
+
+4. Dashboard nang cao
+
+- Them bieu do so luong card theo tung cot.
+- Them bieu do tien do theo thoi gian.
+- Loc thong ke theo group.
+- Loc theo thanh vien.
+- Loc theo trang thai card.
+- Loc theo khoang deadline.
+- Hien thi so card da tao, da cap nhat va da hoan thanh cua tung thanh vien.
+- Hien thi ty le hoan thanh cua tung nhom.
+- Hien thi danh sach card qua han va sap den han.
+- Co the xuat bao cao neu pham vi do an cho phep.
+
+Ly do can bo sung:
+Dashboard hien tai moi cung cap thong ke co ban. De phan anh ro muc do
+dong gop cua thanh vien va tien do nhom, can mo rong bo loc va bieu do.
+
+
+5. Tich hop truc tiep voi Moodle Assignment
+
+Can xac dinh ro pham vi cua chuc nang nay. Neu de tai yeu cau tich hop voi
+hoat dong Assignment cua Moodle thi can bo sung:
+
+- Cho phep chon mot Assignment co san trong khoa hoc.
+- Lien ket card voi Assignment hoac submission cu the.
+- Hien thi trang thai da nop/chua nop bai.
+- Hien thi diem va feedback neu nguoi dung co quyen xem.
+- Theo doi thanh vien da nop bai.
+- Tu dong cap nhat trang thai card khi co submission.
+
+Neu khong trien khai tich hop truc tiep, tai lieu can ghi ro rang he thong
+chi ho tro luu URL nop bai trong card, khong doc truc tiep du lieu tu module
+Assignment.
+
+
+III. CAC PHAN CAN HOAN THIEN
+----------------------------
+
+6. Lich su thao tac day du
+
+Can dam bao history ghi nhan day du cac thao tac:
+
+- Tao card.
+- Sua tieu de va mo ta.
+- Sua deadline.
+- Sua assignee.
+- Di chuyen card.
+- Xoa card.
+- Them va xoa file dinh kem.
+- Them binh luan.
+- Thay doi cot hoac WIP limit.
+
+Lich su nen hien thi nguoi thao tac, thoi gian, noi dung thay doi truoc va
+sau khi cap nhat neu phu hop.
+
+
+7. Phan quyen va bao mat
+
+- Kiem tra lai quyen cua giao vien, sinh vien, manager va admin.
+- Kiem tra sinh vien khong xem duoc card cua group khac.
+- Kiem tra khong the truy cap card thuoc Kanban khac bang cach sua ID tren URL
+  hoac request AJAX.
+- Kiem tra sesskey, context, cmid va capability tren tat ca endpoint ghi du.
+- Kiem tra quyen truy cap file dinh kem.
+- Kiem tra du lieu khi nguoi dung khong con la thanh vien cua group.
+
+
+8. Ngon ngu va giao dien
+
+- Chuyen toan bo chuoi hard-code trong PHP, JavaScript va dashboard vao
+  language pack.
+- Kiem tra day du tieng Viet va tieng Anh.
+- Sua cac canh bao ESLint/coding style trong board.js.
+- Kiem tra giao dien tren man hinh nho va thiet bi di dong.
+- Kiem tra modal, nut bam, bang card va file dinh kem voi cac Moodle theme
+  khac nhau.
+- Bo sung thong bao loi ro rang khi request AJAX that bai.
+
+
+9. Xu ly loi va du lieu bien
+
+- Hien thi loi khi deadline khong hop le.
+- Hien thi loi khi WIP limit da day.
+- Hien thi loi khi file khong dung dinh dang hoac vuot qua dung luong.
+- Hien thi loi khi assignee khong thuoc group hop le.
+- Xu ly truong hop card hoac column da bi xoa trong luc nguoi dung dang thao tac.
+- Khong de request loi tao ra du lieu khong day du.
+
+
+IV. KIEM THU CAN BO SUNG
+------------------------
+
+10. PHPUnit
+
+Can bo sung test cho:
+
+- Tao, sua va xoa column.
+- Sap xep column.
+- Sap xep card trong cung column.
+- Them, sua va xoa assignee.
+- Upload, tai xuong va xoa file.
+- Them va doc binh luan.
+- Ghi nhan history.
+- Notification va scheduled task.
+- Bao mat file theo group.
+- Xoa activity va kiem tra du lieu lien quan duoc xoa.
+- Backup/restore day du tat ca bang va file.
+
+
+11. Behat va kiem thu giao dien
+
+Can kiem tra cac luong:
+
+- Giao vien tao activity Kanban.
+- Sinh vien trong group A khong xem duoc card cua group B.
+- Tao card, sua card, xoa card va keo tha card.
+- Phan cong mot hoac nhieu thanh vien.
+- Them file dinh kem va mo chi tiet file.
+- Them binh luan.
+- Hien thi card sap den han va qua han.
+- Hien thi dashboard.
+- Quan ly column.
+- Backup va restore activity.
+
+
+12. Kiem thu tuong thich
+
+- Kiem thu tren MariaDB.
+- Kiem thu tren PostgreSQL.
+- Kiem thu voi nhieu Moodle theme.
+- Kiem tra PHP version va Moodle version muc tieu.
+- Kiem tra cai dat moi, nang cap tu phien ban cu va go cai dat.
+- Kiem tra tren moi truong Docker neu de cuong yeu cau Docker.
+
+
+V. CAC NOI DUNG CAN CAP NHAT TRONG BAO CAO
+-------------------------------------------
+
+13. Lam ro pham vi san pham
+
+Trong bao cao can tach ro:
+
+- Chuc nang da hoan thanh.
+- Chuc nang moi chi hien thi tren giao dien.
+- Chuc nang chua co co che tu dong.
+- Chuc nang du kien phat trien them.
+
+Vi du:
+
+- Hien thi card qua han: da co.
+- Gui email/Moodle notification khi qua han: chua co.
+- Luu URL nop bai: da co.
+- Tich hop truc tiep voi Moodle Assignment: chua co.
+- Dashboard co ban: da co.
+- Dashboard bieu do va bo loc nang cao: chua co.
+
+
+14. Cap nhat tieu chi nghiem thu
+
+Nen bo sung cac tieu chi:
+
+- Giao vien co the quan ly cac column.
+- Thu tu card duoc luu dung sau khi keo tha.
+- Thanh vien nhan duoc thong bao dung su kien.
+- Scheduled task gui canh bao deadline dung thoi diem.
+- Dashboard loc duoc theo group va thanh vien.
+- Khong lo du lieu giua cac group.
+- File dinh kem chi duoc tai boi nguoi co quyen.
+- Backup/restore phuc hoi dung card, column, file, comment va history.
+- PHPUnit va Behat chay thanh cong.
+- Plugin cai dat duoc tren moi truong Moodle muc tieu.
+
+
+VI. THU TU UU TIEN DE THUC HIEN
+-------------------------------
+
+Uu tien 1 - Can lam truoc khi nghiem thu:
+
+1. Bo sung thong bao Moodle va scheduled task deadline.
+2. Hoan thien quan ly column.
+3. Hoan thien sap xep vi tri card.
+4. Bo sung test cho cac chuc nang moi.
+5. Chay PHPUnit/Behat va sua loi nghiem trong.
+
+Uu tien 2 - Nen lam de nang chat luong do an:
+
+6. Mo rong dashboard voi bo loc va bieu do.
+7. Ghi history day du cho moi thao tac.
+8. Chuyen het chuoi hard-code sang language pack.
+9. Kiem thu MariaDB va PostgreSQL.
+10. Kiem tra responsive va nhieu Moodle theme.
+
+Uu tien 3 - Tuy theo pham vi de tai:
+
+11. Tich hop truc tiep voi Moodle Assignment.
+12. Them xuat bao cao.
+13. Them CI/Docker tu dong cho build va test.
+
+
+VII. KET LUAN
+-------------
+
+Mo dun hien da dap ung phan cot loi cua mot he thong Kanban trong Moodle.
+De dap ung day du de cuong, can tap trung vao bon nhom chinh:
+
+1. Quan ly va tuy chinh column.
+2. Thong bao va canh bao deadline tu dong.
+3. Dashboard nang cao va thong ke dong gop.
+4. Kiem thu, bao mat va tich hop day du voi cac thanh phan Moodle.
+
+Neu chua kip trien khai tat ca chuc nang, can ghi ro trong bao cao day la
+phuong an phat trien tiep theo, dong thoi dieu chinh tieu chi nghiem thu
+cho dung voi pham vi thuc te cua plugin.
