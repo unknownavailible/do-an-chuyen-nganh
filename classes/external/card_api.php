@@ -3,7 +3,9 @@ namespace mod_kanban\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once("$CFG->libdir/externallib.php");
+// Không require lib/externallib.php ở đây: file đó cấm include trực tiếp khi
+// chạy PHPUnit (coding_exception) và lớp core_external\external_api đã được
+// Moodle autoload. Chỉ cần lib.php của plugin cho các hàm kanban_*.
 require_once(__DIR__ . '/../../lib.php');
 
 use core_external\external_api;
@@ -41,7 +43,7 @@ class card_api extends \core_external\external_api {
         $context = context_module::instance($cm->id);
         self::validate_context($context);
         require_capability('mod/kanban:managecards', $context);
-        require_sesskey();
+        // Sesskey do framework (lib/ajax/service.php) kiểm tra; không gọi ở đây để WS token hoạt động.
 
         $kanban = $DB->get_record('kanban', ['id' => $cm->instance], '*', MUST_EXIST);
         $card = kanban_validate_and_get_card($params['cardid'], $cm, $kanban, 'mod/kanban:managecards');
@@ -150,7 +152,7 @@ class card_api extends \core_external\external_api {
         $context = context_module::instance($cm->id);
         self::validate_context($context);
         require_capability('mod/kanban:managecards', $context);
-        require_sesskey();
+        // Sesskey do framework (lib/ajax/service.php) kiểm tra; không gọi ở đây để WS token hoạt động.
 
         $kanban = $DB->get_record('kanban', ['id' => $params['kanbanid']], '*', MUST_EXIST);
         if ((int)$kanban->id !== (int)$cm->instance) {
@@ -161,6 +163,11 @@ class card_api extends \core_external\external_api {
         $currentgroup = groups_get_activity_group($cm, true);
         if (!has_capability('moodle/site:accessallgroups', $context) && $currentgroup && !groups_is_member($currentgroup, $USER->id)) {
             throw new \moodle_exception('nopermissions', 'error');
+        }
+
+        $title = trim((string)$params['title']);
+        if ($title === '') {
+            throw new \moodle_exception('required', 'mod_kanban');
         }
 
         if ($params['duedate'] > 0 && $params['duedate'] < (time() - 300)) {
@@ -175,7 +182,7 @@ class card_api extends \core_external\external_api {
         $card->kanbanid = $params['kanbanid'];
         $card->columnid = $params['columnid'];
         $card->groupid = $currentgroup ? $currentgroup : 0;
-        $card->title = $params['title'];
+        $card->title = $title;
         $card->description = $params['description'];
         $card->duedate = $params['duedate'];
         $card->task_url = $params['submissionurl'];
@@ -189,7 +196,7 @@ class card_api extends \core_external\external_api {
         $card->timemodified = time();
 
         $cardid = $DB->insert_record('kanban_cards', $card);
-        kanban_set_card_assignees($cardid, $assigneeids, $cm);
+        kanban_set_card_assignees($cardid, $assigneeids);
         \mod_kanban\event\card_created::create([
             'objectid' => $cardid,
             'context' => $context,
@@ -250,7 +257,7 @@ class card_api extends \core_external\external_api {
         $context = context_module::instance($cm->id);
         self::validate_context($context);
         require_capability('mod/kanban:managecards', $context);
-        require_sesskey();
+        // Sesskey do framework (lib/ajax/service.php) kiểm tra; không gọi ở đây để WS token hoạt động.
 
         $kanban = $DB->get_record('kanban', ['id' => $cm->instance], '*', MUST_EXIST);
         $card = kanban_validate_and_get_card($params['cardid'], $cm, $kanban, 'mod/kanban:managecards');
@@ -274,7 +281,7 @@ class card_api extends \core_external\external_api {
         $card->timemodified = time();
         $DB->update_record('kanban_cards', $card);
 
-        kanban_set_card_assignees($card->id, $assigneeids, $cm);
+        kanban_set_card_assignees($card->id, $assigneeids);
         \mod_kanban\event\card_updated::create([
             'objectid' => $card->id,
             'context' => $context,
@@ -318,14 +325,20 @@ class card_api extends \core_external\external_api {
         $context = context_module::instance($cm->id);
         self::validate_context($context);
         require_capability('mod/kanban:managecards', $context);
-        require_sesskey();
+        // Sesskey do framework (lib/ajax/service.php) kiểm tra; không gọi ở đây để WS token hoạt động.
 
         $kanban = $DB->get_record('kanban', ['id' => $cm->instance], '*', MUST_EXIST);
         $card = kanban_validate_and_get_card($params['cardid'], $cm, $kanban, 'mod/kanban:managecards');
 
         kanban_log_card_change($card->id, 'deleted', get_string('history_deleted', 'mod_kanban'));
         $deletedcardid = (int)$card->id;
-        $DB->delete_records('kanban_cards', ['id' => $card->id]);
+        // Dọn dữ liệu con + file đính kèm để không orphan (như kanban_delete_instance()).
+        $fs = get_file_storage();
+        $fs->delete_area_files($context->id, 'mod_kanban', 'card_attachments', $deletedcardid);
+        $DB->delete_records('kanban_card_assignees', ['cardid' => $deletedcardid]);
+        $DB->delete_records('kanban_card_comments', ['cardid' => $deletedcardid]);
+        $DB->delete_records('kanban_card_history', ['cardid' => $deletedcardid]);
+        $DB->delete_records('kanban_cards', ['id' => $deletedcardid]);
         \mod_kanban\event\card_deleted::create([
             'objectid' => $deletedcardid,
             'context' => $context,
@@ -421,7 +434,7 @@ class card_api extends \core_external\external_api {
         $context = context_module::instance($cm->id);
         self::validate_context($context);
         require_capability('mod/kanban:managecards', $context);
-        require_sesskey();
+        // Sesskey do framework (lib/ajax/service.php) kiểm tra; không gọi ở đây để WS token hoạt động.
 
         $kanban = $DB->get_record('kanban', ['id' => $cm->instance], '*', MUST_EXIST);
         $card = kanban_validate_and_get_card($params['cardid'], $cm, $kanban, 'mod/kanban:managecards');
@@ -532,7 +545,7 @@ class card_api extends \core_external\external_api {
         $context = context_module::instance($cm->id);
         self::validate_context($context);
         require_capability('mod/kanban:viewdashboard', $context);
-        require_sesskey();
+        // Sesskey do framework (lib/ajax/service.php) kiểm tra; không gọi ở đây để WS token hoạt động.
         $kanban = $DB->get_record('kanban', ['id' => $cm->instance], '*', MUST_EXIST);
         $card = kanban_validate_and_get_card($params['cardid'], $cm, $kanban, 'mod/kanban:viewdashboard');
 
@@ -582,7 +595,7 @@ class card_api extends \core_external\external_api {
         $context = context_module::instance($cm->id);
         self::validate_context($context);
         require_capability('mod/kanban:managecards', $context);
-        require_sesskey();
+        // Sesskey do framework (lib/ajax/service.php) kiểm tra; không gọi ở đây để WS token hoạt động.
         $kanban = $DB->get_record('kanban', ['id' => $cm->instance], '*', MUST_EXIST);
         $card = kanban_validate_and_get_card($params['cardid'], $cm, $kanban, 'mod/kanban:managecards');
 

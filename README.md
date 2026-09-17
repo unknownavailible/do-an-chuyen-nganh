@@ -26,6 +26,9 @@ Giảng viên thực hiện theo luồng Moodle chuẩn:
    Tên, link và hạn nộp của assignment được hiển thị trên bảng (`view.php`
    qua `kanban_get_linked_assignment_info()`), ID lưu trong `kanban.assignmentid`
    và được validate cùng khóa học khi tạo/cập nhật/restore.
+   Phạm vi hiện tại: chỉ liên kết hiển thị (tên/link/duedate), **không** đọc
+   submission, điểm hay feedback từ `mod_assign` và **không** tự cập nhật
+   trạng thái card khi có bài nộp.
 6. Cấu hình chế độ nhóm, group hoặc grouping theo nhu cầu của khóa học.
 7. Lưu hoạt động.
 
@@ -101,8 +104,9 @@ Khi người dùng tạo card:
 
 #### Phân công người thực hiện
 
-- Khi tạo card, người dùng có thể chọn một hoặc nhiều thành viên trong ô
-  **Phân công cho**.
+- Khi tạo card, người dùng tick chọn một hoặc nhiều thành viên trong danh
+  sách checkbox **Phân công cho** (khung cuộn `.kanban-assignee-list`, gọn
+  theo số người, không cần giữ Ctrl như select cũ).
 - Danh sách lựa chọn được giới hạn theo group hiện tại của activity. Nếu chưa
   chọn group, chưa thêm thành viên vào group hoặc người dùng không có quyền
   `moodle/site:accessallgroups`, danh sách có thể hiển thị
@@ -111,10 +115,8 @@ Khi người dùng tạo card:
   `kanban_card_assignees`; trường `assigned_to` của card giữ lại người đầu tiên
   để tương thích với dữ liệu cũ.
 - Việc thay đổi danh sách assignee sau khi tạo đã được hỗ trợ ở tầng API
-  `mod_kanban_update_card` và được kiểm tra lại theo group ở phía server.
-  Giao diện `board.js` hiện tại ưu tiên phân công lúc tạo card; màn hình
-  chỉnh sửa assignee sau khi tạo vẫn còn đơn giản nên có thể cần hoàn thiện
-  thêm về trải nghiệm người dùng, nhưng API server đã đầy đủ.
+  `mod_kanban_update_card` (kiểm tra lại theo group ở server) và ở giao diện
+  modal sửa card (checkbox preselect theo assignee hiện tại).
 
 Khi kéo card sang column khác, JavaScript gọi `mod_kanban_move_card`. Server
 kiểm tra card và column có cùng Kanban, người dùng có quyền với group, sau đó
@@ -146,9 +148,11 @@ kiểm soát context, đường dẫn và quyền truy cập trước khi gửi 
 
 ### F. Vai trò của giảng viên và sinh viên
 
-- **Giảng viên**: tạo activity, xem dashboard, xem history, thêm comment và
-  quản lý card theo capability được cấp.
-- **Sinh viên**: xem board và thao tác card trong group được phép.
+- **Giảng viên**: tạo activity, xem dashboard, xem history, thêm comment,
+  quản lý card và quản lý cột (`mod/kanban:managecolumns`) theo capability
+  được cấp.
+- **Sinh viên**: xem board và thao tác card trong group được phép
+  (`mod/kanban:managecards`); không quản lý cột.
 - **Manager/Admin**: phụ thuộc capability thực tế trong Moodle.
 
 Mỗi request đều phải kiểm tra ở server. Việc ẩn nút trên giao diện không được
@@ -213,6 +217,16 @@ Giao diện sử dụng:
 Do đó, plugin không cần jQuery riêng hoặc Bootstrap riêng. Việc dùng các API
 Moodle giúp activity phù hợp hơn với theme và cơ chế cache của Moodle.
 
+## 1.3. Yêu cầu hệ thống
+
+| Thành phần | Yêu cầu |
+|---|---|
+| Moodle | 4.1+ (`$plugin->requires = 2022112800` trong `version.php`) |
+| Plugin | `mod_kanban` `v0.1.0`, `maturity = ALPHA` |
+| PHP ext | `zip`, `gd`, `intl`, `sodium` (Moodle yêu cầu; xem ADMIN guide §1) |
+| Database | MariaDB hoặc PostgreSQL qua `$DB`/XMLDB, cấu hình trong `config.php` (một instance một DB chính, không dùng song song) |
+| Cron | Bắt buộc để chạy scheduled task `deadline_notifications` (mỗi 15 phút); kiểm tra `php admin/cli/cron.php` nếu không thấy cảnh báo deadline |
+
 ## 2. Trạng thái hiện tại
 
 Plugin Kanban đã đi qua các task chính của dự án và hiện đang ở trạng thái sẵn sàng để triển khai trong Moodle với các chức năng cốt lõi và các kiểm soát bảo mật quan trọng đã được bổ sung.
@@ -269,7 +283,10 @@ Tài liệu chi tiết từng task được lưu trong các file:
 - Bình luận của giáo viên.
 - Lịch sử thay đổi chỉ hiển thị cho giáo viên có quyền xem dashboard.
 - Hiển thị tên cột trạng thái thay cho ID card trong chi tiết công việc.
-- Dashboard thống kê cơ bản.
+- Dashboard giảng viên (`dashboard.php`, quyền `mod/kanban:viewdashboard`).
+  Xem chi tiết ở §2.2.1 bên dưới.
+- Tạo card kèm file đính kèm qua endpoint upload trên chuẩn Moodle File API
+  (`upload_and_create_card.php`). Xem chi tiết ở §2.2.2 bên dưới.
 - Phân quyền xem bảng, quản lý card và xem dashboard.
 - Kiểm tra `cmid`, context, capability, sesskey và quan hệ card/column với đúng Kanban.
 - Giới hạn truy cập card theo group, hỗ trợ quyền `moodle/site:accessallgroups`.
@@ -278,9 +295,8 @@ Tài liệu chi tiết từng task được lưu trong các file:
 - Quản lý cột: tạo, sửa tên/mô tả/màu/WIP limit, xóa cột rỗng, đổi thứ tự
   qua 4 API `mod_kanban_create_column`, `mod_kanban_update_column`,
   `mod_kanban_delete_column`, `mod_kanban_reorder_columns`.
-- Notification `cardassigned`/`cardupdated`/`deadline` (`db/messages.php`) +
-  scheduled task `deadline_notifications` mỗi 15 phút (`db/tasks.php`,
-  bật/tắt bằng `enablenotifications` trong `settings.php`).
+- Notification và scheduled task deadline (3 providers + task 15 phút).
+  Xem chi tiết ở §2.2.4 bên dưới.
 - Kiểm tra WIP limit ở server khi tạo, di chuyển hoặc cập nhật card.
 - Moodle File API cho filearea `card_attachments`, gồm xem danh sách, tải và xóa từng file.
 - Backup/restore Moodle 2 cho Kanban, column, card, assignee, member, comment,
@@ -288,16 +304,118 @@ Tài liệu chi tiết từng task được lưu trong các file:
 - PHPUnit external test cho group access, move card, WIP limit và deadline.
 - Behat feature cho các kịch bản group access và WIP limit.
 - AMD `board.js` đã được build thành `board.min.js` và `board.min.js.map`.
-- Có tài liệu backup/restore cho người dùng và quản trị viên.
+- Có tài liệu backup/restore cho người dùng và quản trị viên (xem §7 bên dưới).
+- Xóa activity dọn sạch dữ liệu liên quan qua `kanban_delete_instance()`.
+  Xem chi tiết ở §2.2.3 bên dưới.
+
+### 2.2.1. Dashboard giảng viên (`dashboard.php`)
+
+URL `dashboard.php?id=<cmid>`, yêu cầu `require_login()` và
+`require_capability('mod/kanban:viewdashboard')`.
+
+- Bộ lọc group: dùng `groups_get_activity_group()` và
+  `groups_print_activity_menu()`. Mọi số liệu đổi theo group đang chọn.
+- Quy ước hoàn thành: card nằm ở cột cuối cùng theo `sortorder DESC`
+  được tính là Done (`kanban_is_done_column()` logic tương đương).
+- 4 KPI: tổng card (`dashboard_kpi_total`), tỷ lệ hoàn thành %
+  (`dashboard_kpi_progress`), quá hạn `duedate < now`
+  (`dashboard_kpi_overdue`), sắp đến hạn trong 48 giờ
+  (`dashboard_kpi_duesoon`).
+- 2 biểu đồ Moodle core (`core\chart_bar`, `core\chart_pie` doughnut):
+  phân bố card theo cột (`dashboard_column_dist`) và tỷ lệ hoàn thành
+  (`dashboard_progress_pie` vs `dashboard_remaining`). Chỉ render khi core
+  hỗ trợ chart và `totalcards > 0`.
+- Bảng đóng góp cá nhân (`dashboard_member_title`): đếm qua bảng
+  `kanban_card_assignees` nên đúng với multi-assignee. Các cột:
+  thành viên, số task, hoàn thành, trễ hạn, tỷ lệ đóng góp %, thanh tiến độ.
+  Card chưa phân công gom vào `dashboard_unassigned`. Sắp xếp giảm dần theo
+  tổng task.
+- Bảng cảnh báo (`dashboard_overdue_title`): card chưa done và
+  `duedate <= now + 48h`, sắp xếp theo duedate, badge đỏ (quá hạn) / vàng
+  (sắp đến hạn), hiển thị tên cột, assignee (`kanban_get_card_assignee_names()`)
+  và hạn `userdate()`.
+- Giới hạn hiện tại: chưa lọc theo thành viên, khoảng thời gian hay trạng thái
+  tùy ý; chưa xuất CSV/báo cáo. Đây là hướng mở rộng P2 trong báo cáo.
+
+### 2.2.2. Tạo card kèm file (`upload_and_create_card.php`)
+
+Endpoint JSON `POST upload_and_create_card.php` cho form tạo card có file:
+
+- Tham số: `cmid*`, `kanbanid*`, `columnid*`, `title`, `description`
+  (`PARAM_RAW`), `duedate` (`PARAM_INT`), `submissionurl` (`PARAM_URL`),
+  `assignees[]` (`PARAM_INT`).
+- Kiểm tra: `require_login()`, `require_capability('mod/kanban:managecards')`,
+  `require_sesskey()`, `kanbanid == cm->instance`, column thuộc đúng Kanban,
+  membership group (`moodle/site:accessallgroups` hoặc `groups_is_member()`).
+- Validate: deadline quá khứ (`duedate < time() - 300`) trả về
+  `error_duedate_past`; `kanban_check_wip_limit()`; `kanban_validate_assignee_list()`;
+  `sortorder = MAX(sortorder) + 1` theo `(kanbanid, columnid, groupid)`.
+- Sau insert: `kanban_set_card_assignees()`, trigger event `card_created`,
+  `kanban_log_card_change('created')`, `kanban_notify_card_assignees('assigned')`.
+- File: quét `$_FILES` có field chứa `attach` hoặc `attachments` /
+  `attachments[]`, chỉ nhận `UPLOAD_ERR_OK`, làm sạch tên bằng
+  `clean_param(PARAM_FILE)`, lưu bằng `create_file_from_pathname()` vào
+  `mod_kanban / card_attachments / itemid = cardid`. Response:
+  `{status, cardid, files, message}`.
+- Giới hạn: không kiểm tra MIME/size riêng ở plugin (dựa vào giới hạn Moodle);
+  file lỗi bị bỏ qua thay vì fail cả card.
+
+### 2.2.3. Xóa activity (`kanban_delete_instance()` trong `lib.php`)
+
+Khi GV xóa hoạt động Kanban, `kanban_delete_instance($id)` dọn:
+
+1. File `intro` và `card_attachments` qua `$fs->delete_area_files()`.
+2. `kanban_card_assignees`, `kanban_card_comments`, `kanban_card_history`
+   theo danh sách `cardids` (`get_in_or_equal()`).
+3. `kanban_members`, `kanban_cards`, `kanban_columns`, `kanban`.
+
+Vì restore tạo ID mới, khi đối chiếu sau restore phải so quan hệ/nội dung
+(`kanbanid`, `columnid`, `cardid`), không so ID tuyệt đối.
+
+### 2.2.4. Thông báo và scheduled task deadline
+
+Khai báo trong `db/messages.php` (3 providers, mặc định `popup` + `email`,
+capability `mod/kanban:view`):
+
+| Provider | Khi nào gửi | Subject string |
+|---|---|---|
+| `cardassigned` | Card được tạo/cập nhật assignee (`kanban_notify_card_assignees($card, $cm, 'assigned')`) | `message_cardassigned_subject` |
+| `cardupdated` | Card được sửa, di chuyển, bình luận (`... , 'updated'`) | `message_cardupdated_subject` |
+| `deadline` | Sắp đến hạn (`deadline_warning`) hoặc quá hạn (`deadline_overdue`) | `message_deadline_subject` |
+
+Logic trong `lib.php:kanban_notify_card_assignees()`:
+
+- Chỉ gửi khi `get_config('mod_kanban', 'enablenotifications')` bật.
+- Chỉ gửi cho user trong `kanban_card_assignees`, bỏ qua bản ghi đã xóa
+  (`deleted = 0`).
+- Với `assigned`/`updated`: bỏ qua chính người thao tác (`$USER->id`); với
+  deadline vẫn gửi cho chính assignee.
+- Nội dung: tên card + tên Kanban + câu deadline (`deadline_warning_message` /
+  `deadline_overdue_message` với `userdate(duedate)`) hoặc
+  `card_updated_message`. Link về `view.php?id=<cmid>`, gửi từ noreply user.
+
+Scheduled task `mod_kanban\task\deadline_notifications` (`db/tasks.php`,
+`minute = */15`):
+
+- Bỏ qua nếu `enablenotifications` tắt.
+- Quét `kanban_cards` có `duedate <= now + 48h`, bỏ card đã nằm ở cột Done
+  (cột cuối `sortorder DESC`), bỏ card đã có history `deadline_warning` /
+  `deadline_overdue` (chống spam: mỗi card một lần cho mỗi trạng thái).
+- Gọi notify + `kanban_log_card_change()` tương ứng.
+
+Bật/tắt: **Site administration > Plugins > Activity modules > Kanban >
+Enable Kanban notifications** (`settings.php` → `mod_kanban/enablenotifications`,
+mặc định bật). Cron Moodle phải chạy (`php admin/cli/cron.php`); nếu tắt
+notification hoặc cron dừng thì không có cảnh báo nào được gửi.
 
 ### 2.3. Các hạng mục còn có thể cải thiện
+
+Chi tiết đầy đủ xem [§9](#9-hạng-mục-còn-lại) bên dưới. Tóm tắt:
 
 - Chuỗi JavaScript trong `amd/src/board.js` (confirm/prompt/thông báo lỗi client)
   vẫn còn hard-code; có thể truyền qua `js_call_amd` hoặc `core/str` khi cần
   đa ngôn ngữ đầy đủ ở client.
 - Dashboard có thể bổ sung bộ lọc theo cột/khoảng thời gian nếu cần.
-- Cần chạy đầy đủ PHPUnit/Behat trên môi trường CI hoặc Moodle test hoàn chỉnh.
-- Cần chạy đầy đủ PHPUnit/Behat trên môi trường CI hoặc Moodle test hoàn chỉnh.
 
 ## 3. Kiến trúc thư mục
 
@@ -336,8 +454,11 @@ mod/kanban/
 │   ├── kanban_external_test.php  # PHPUnit external/API tests
 │   └── behat/mod_kanban.feature  # Behat scenarios
 ├── docs/csdl_thamkhao.sql        # SQL tham khảo, không dùng để cài đặt
-├── BACKUP_RESTORE_USER_GUIDE.md  # Hướng dẫn backup/restore giao diện
-├── BACKUP_RESTORE_ADMIN_GUIDE.md # Hướng dẫn backup/restore kỹ thuật
+├── pix/icon.svg                  # Icon activity
+├── mod_form.php                  # Form tạo/sửa activity (gồm assignment selector)
+├── version.php                   # component mod_kanban, requires Moodle 4.1+, release v0.1.0
+├── BACKUP_RESTORE_USER_GUIDE.md  # Hướng dẫn backup/restore bằng UI cho GV (xem §7)
+├── BACKUP_RESTORE_ADMIN_GUIDE.md # Hướng dẫn CLI/kỹ thuật cho admin (xem §7)
 ├── TASK7_AMD_BUILD.md            # Hướng dẫn build AMD
 ├── dashboard.php                 # Dashboard giảng viên
 ├── lib.php                       # Vòng đời activity, helper, notify, pluginfile
@@ -401,15 +522,28 @@ Moodle tự thêm tiền tố, ví dụ `mdl_kanban_cards`.
 
 Module không sử dụng đồng thời MariaDB và PostgreSQL. Một Moodle instance dùng database chính được cấu hình trong `config.php`. Code XMLDB và `$DB` giúp module có thể chạy trên cả hai hệ quản trị.
 
+### Hỗ trợ và giới hạn (`kanban_supports()` trong `lib.php`)
+
+Hỗ trợ (`return true`): `FEATURE_GROUPS`, `FEATURE_GROUPINGS`,
+`FEATURE_MOD_INTRO`, `FEATURE_SHOW_DESCRIPTION`, `FEATURE_BACKUP_MOODLE2`.
+
+Chưa hỗ trợ: completion/grade nâng cao, calendar, search, và chưa có Privacy
+provider (`classes/privacy/` không tồn tại). Dữ liệu user nằm ở
+`kanban_cards.assigned_to`, `kanban_card_assignees`, `kanban_card_comments`,
+`kanban_card_history`, `kanban_members` — cần bổ sung privacy API nếu nghiệm
+thu GDPR.
+
 ## 5. Vai trò và quyền hạn
 
 Moodle quản lý tài khoản học viên và giáo viên ở cấp hệ thống. Module không tạo bảng tài khoản riêng.
 
-Các capability chính:
+Các capability chính (`db/access.php`):
 
 - `mod/kanban:addinstance`: thêm hoạt động Kanban vào khóa học.
 - `mod/kanban:view`: xem bảng Kanban.
 - `mod/kanban:managecards`: tạo, di chuyển và xóa card.
+- `mod/kanban:managecolumns`: tạo, sửa, xóa và sắp xếp cột
+  (teacher/editingteacher/manager; student không có).
 - `mod/kanban:viewdashboard`: xem dashboard và thêm bình luận giáo viên.
 
 Lịch sử thay đổi được lưu trong `{prefix}kanban_card_history` nhưng chỉ được
@@ -420,11 +554,11 @@ viên có thể xem bình luận của giáo viên nhưng không có quyền g�
 
 Vai trò đề xuất:
 
-| Vai trò | Xem bảng | Quản lý card | Xem dashboard |
-|---|---:|---:|---:|
-| Học viên | Có | Có trong phạm vi nhóm | Không |
-| Giáo viên | Có | Có | Có |
-| Quản trị viên/Manager | Theo capability Moodle | Theo capability Moodle | Có |
+| Vai trò | Xem bảng | Quản lý card | Quản lý cột | Xem dashboard |
+|---|---:|---:|---:|---:|
+| Học viên | Có | Có trong phạm vi nhóm | Không | Không |
+| Giáo viên | Có | Có | Có | Có |
+| Quản trị viên/Manager | Theo capability Moodle | Theo capability Moodle | Theo capability Moodle | Có |
 
 Sau khi thay đổi capability hoặc schema, chạy nâng cấp Moodle để cập nhật plugin.
 Migration thêm trường `creatorid` nằm trong `db/upgrade.php`. Có thể chạy nâng
@@ -457,11 +591,43 @@ Column (`classes/external/column_api.php`):
 - `mod_kanban_delete_column`
 - `mod_kanban_reorder_columns`
 
-Các thao tác ghi yêu cầu đăng nhập, capability phù hợp và sesskey. Card và
+Các thao tác ghi yêu cầu đăng nhập và capability phù hợp. Sesskey được
+framework kiểm tra trong `lib/ajax/service.php` (`call_external_function`),
+không gọi `require_sesskey()` riêng trong từng external function để các cuộc
+gọi web service bằng token vẫn hoạt động. Card và
 column được truy vấn kèm `kanbanid`; dữ liệu group được kiểm tra ở server.
+Riêng 4 API cột (`create/update/delete/reorder`) yêu cầu
+`mod/kanban:managecolumns` (giảng viên/manager), không dùng `managecards`.
 
 File card được phục vụ qua `kanban_pluginfile()` trong `lib.php`, không đọc
 trực tiếp từ filesystem.
+
+### 6.1. Events và Logs (`classes/event/`)
+
+| Event | Kích hoạt khi | CRUD |
+|---|---|---|
+| `card_created` | Tạo card (AJAX hoặc upload kèm file) | c |
+| `card_updated` | Sửa title/desc/deadline/URL/assignee | u |
+| `card_moved` | Kéo sang cột khác hoặc sắp xếp lại (`fromcolumnid → tocolumnid`, `newposition`) | u |
+| `card_deleted` | Xóa card | d |
+| `comment_created` | Thêm bình luận (chung hoặc GV) | c |
+
+Xem ở **Course > Reports > Logs**, `objecttable = kanban_cards`, URL trỏ về
+`view.php?id=<cmid>`. Riêng history chi tiết (`kanban_card_history`) chỉ trả
+về cho người có `mod/kanban:viewdashboard`.
+
+### 6.2. Lỗi thường gặp và troubleshooting
+
+| Thông báo | Nguyên nhân | Cách xử lý |
+|---|---|---|
+| `errorwiplimit` (kèm tên cột + limit) | Cột đã đủ WIP khi tạo/move/update card | Chuyển card sang cột khác hoặc tăng WIP / để 0 = không giới hạn |
+| `error_duedate_past` | Deadline trong quá khứ (`duedate < time() - 300`) | Chọn lại hạn tương lai |
+| `nopermissions` | Thiếu capability, ngoài group, assignee ngoài group | Kiểm tra enrol, group membership, `accessallgroups` |
+| `invalidrecord` / `Invalid kanban instance` | `cmid`/`kanbanid`/`columnid`/`cardid` không cùng Kanban | Không sửa ID trên URL/AJAX; tải lại board |
+| `errorinvalidcolumncolor` / `errorinvalidwiplimit` | Màu cột sai định dạng, WIP âm | Nhập hex hợp lệ, WIP số nguyên ≥ 0 |
+| `errorcolumnnotempty` / `cannotdeleteallcolumns` | Xóa cột còn card / xóa cột cuối cùng | Dời/xóa hết card trước; giữ ≥ 1 cột |
+| File lỗi bị bỏ qua, `files = 0` | `UPLOAD_ERR_*`, tên rỗng sau `PARAM_FILE` | Kiểm tra size/type theo giới hạn Moodle, đổi tên file |
+| Không nhận notification deadline | `enablenotifications` tắt hoặc cron dừng | Bật setting (xem §2.2.4), chạy `php admin/cli/cron.php` |
 
 ## 7. Backup và restore
 
@@ -480,17 +646,25 @@ column, card, user và group.
 
 Đã kiểm thử bằng Moodle CLI: backup course có Kanban và restore sang course mới
 thành công; số lượng Kanban, column, card và history được đối chiếu khớp.
-Hướng dẫn chi tiết nằm trong `BACKUP_RESTORE_USER_GUIDE.md` và
-`BACKUP_RESTORE_ADMIN_GUIDE.md`.
+
+- Người dùng (GV): xem [BACKUP_RESTORE_USER_GUIDE.md](./BACKUP_RESTORE_USER_GUIDE.md)
+  — backup/restore bằng giao diện Course reuse, checklist sau restore.
+- Quản trị viên: xem [BACKUP_RESTORE_ADMIN_GUIDE.md](./BACKUP_RESTORE_ADMIN_GUIDE.md)
+  — yêu cầu PHP ext (`zip`, `gd`, `intl`, `sodium`), lệnh
+  `admin/cli/upgrade.php`, `admin/cli/backup.php --courseid`,
+  `admin/cli/restore_backup.php --categoryid`, và troubleshooting
+  (`unknown_context_mapping`, `cardid` NULL, file attachment missing).
 
 ## 8. Kiểm thử và build
 
-PHPUnit hiện có các kiểm thử cho:
+Chạy trên Moodle 4.3 + MariaDB: `OK (4 tests, 7 assertions)`.
 
 - User ngoài group không thể di chuyển card.
 - User đúng group có thể di chuyển card.
 - WIP limit được chặn ở server khi tạo card.
 - Deadline được lưu và nhận diện quá hạn.
+
+Cách chạy và viết test xem `docs/HUONG_DAN_KIEM_THU.md`.
 
 Behat feature mô tả các kịch bản giáo viên, group A/group B và WIP limit. Cần
 chạy Behat trong môi trường Moodle đã cấu hình đầy đủ để xác nhận giao diện.
@@ -603,3 +777,23 @@ Dự án được xem là sẵn sàng khi:
 - Moodle Plugin Types - https://moodledev.io/docs/5.0/apis/plugintypes
 - Moodle Coding Style - https://moodledev.io/general/development/policies/codingstyle
 - Moodle Testing - https://moodledev.io/general/development/tools
+
+## 16. Phiên bản, License và Changelog
+
+- `version.php`: `component = mod_kanban`, `version = 2026091700`,
+  `requires = 2022112800` (Moodle 4.1+), `maturity = ALPHA`,
+  `release = v0.1.0`.
+- License: GPL v3 (chuẩn plugin Moodle).
+- Changelog:
+  - `2026091700`: fix QA — `delete_card` dọn assignees/comments/history/file;
+    `kanban_set_card_assignees()` không đổi `groupid`; `create_card` +
+    upload chặn title rỗng; bỏ `require_sesskey()` trong external functions
+    (framework đã kiểm tra, WS token hoạt động); sửa test (enrol, cm thật,
+    `$SESSION->activegroup`). Probe 16/16 PASS, PHPUnit 4/4 PASS.
+- Changelog:
+  - `v0.1.0`: Task 1-7 (bảo mật cmid/kanban/card, multi-assignee,
+    File API, `update_card`, backup/restore Moodle 2, PHPUnit/Behat,
+    AMD build), notification `cardassigned/cardupdated/deadline` +
+    scheduled task `deadline_notifications` 15 phút, quản lý cột
+    (tạo/sửa/xóa/sắp xếp), `sortorder` card, liên kết Assignment
+    (tên/link/hạn nộp).

@@ -377,7 +377,12 @@ function kanban_validate_assignee_list($cm, $assigneeids = []) {
     return array_values(array_unique($assigneeids));
 }
 
-function kanban_set_card_assignees($cardid, $assigneeids, $cm = null) {
+/**
+ * Đồng bộ danh sách assignee của card. Chỉ chạm assignees/assigned_to,
+ * KHÔNG đổi groupid (group được chốt lúc tạo card) để tránh card nhảy nhóm
+ * ngầm khi user có accessallgroups sửa card.
+ */
+function kanban_set_card_assignees($cardid, $assigneeids) {
     global $DB;
 
     $cardid = (int) $cardid;
@@ -395,10 +400,6 @@ function kanban_set_card_assignees($cardid, $assigneeids, $cm = null) {
         $DB->set_field('kanban_cards', 'assigned_to', (int) $assigneeids[0], ['id' => $cardid]);
     } else {
         $DB->set_field('kanban_cards', 'assigned_to', 0, ['id' => $cardid]);
-    }
-
-    if ($cm) {
-        $DB->set_field('kanban_cards', 'groupid', groups_get_activity_group($cm, true) ?: 0, ['id' => $cardid]);
     }
 
     return $assigneeids;

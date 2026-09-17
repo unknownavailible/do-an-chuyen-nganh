@@ -103,3 +103,25 @@ body.modal-open {
     align-items: center;
     justify-content: center;
 }
+
+/* ASSIGNEE CHECKBOX LIST */
+.kanban-assignee-list {
+    max-height: 160px;
+    overflow-y: auto;
+    background-color: #ffffff;
+}
+
+.kanban-assignee-list .form-check {
+    padding: 5px 8px 5px 32px;
+    margin-bottom: 2px;
+    border-radius: 4px;
+}
+
+.kanban-assignee-list .form-check:hover {
+    background-color: #f1f3f5;
+}
+
+.kanban-assignee-list .form-check-label {
+    display: block;
+    cursor: pointer;
+}

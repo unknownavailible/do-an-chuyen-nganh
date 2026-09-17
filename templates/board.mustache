@@ -186,15 +186,18 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="card-assignee-input" class="form-label fw-semibold">{{#str}}cardassignee, mod_kanban{{/str}}</label>
-                        <select class="form-select" id="card-assignee-input" multiple size="5">
+                        <label class="form-label fw-semibold">{{#str}}cardassignee, mod_kanban{{/str}}</label>
+                        <div class="kanban-assignee-list border rounded p-2 bg-white" id="card-assignee-input">
                             {{#assignee_members}}
-                                <option value="{{id}}">{{fullname}}</option>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="{{id}}" id="assignee-{{id}}">
+                                    <label class="form-check-label" for="assignee-{{id}}">{{fullname}}</label>
+                                </div>
                             {{/assignee_members}}
                             {{^assignee_members}}
-                                <option value="" disabled>{{#str}}noassignee, mod_kanban{{/str}}</option>
+                                <div class="text-muted small">{{#str}}noassignee, mod_kanban{{/str}}</div>
                             {{/assignee_members}}
-                        </select>
+                        </div>
                         <div class="form-text small text-muted">{{#str}}cardassignee_help, mod_kanban{{/str}}</div>
                     </div>
 
@@ -248,15 +251,18 @@
                         <input type="datetime-local" class="form-control" id="edit-card-duedate-input">
                     </div>
                     <div class="mb-3">
-                        <label for="edit-card-assignee-input" class="form-label fw-semibold">{{#str}}cardassignee, mod_kanban{{/str}}</label>
-                        <select class="form-select" id="edit-card-assignee-input" multiple size="5">
+                        <label class="form-label fw-semibold">{{#str}}cardassignee, mod_kanban{{/str}}</label>
+                        <div class="kanban-assignee-list border rounded p-2 bg-white" id="edit-card-assignee-input">
                             {{#assignee_members}}
-                                <option value="{{id}}">{{fullname}}</option>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="{{id}}" id="edit-assignee-{{id}}">
+                                    <label class="form-check-label" for="edit-assignee-{{id}}">{{fullname}}</label>
+                                </div>
                             {{/assignee_members}}
                             {{^assignee_members}}
-                                <option value="" disabled>{{#str}}noassignee, mod_kanban{{/str}}</option>
+                                <div class="text-muted small">{{#str}}noassignee, mod_kanban{{/str}}</div>
                             {{/assignee_members}}
-                        </select>
+                        </div>
                         <div class="form-text small text-muted">{{#str}}cardassignee_help_edit, mod_kanban{{/str}}</div>
                     </div>
                     <div class="mb-3">

@@ -108,10 +108,10 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 if (attachmentsInput) {
                     attachmentsInput.value = '';
                 }
-                var assigneeSelect = document.getElementById('card-assignee-input');
-                if (assigneeSelect) {
-                    Array.from(assigneeSelect.options).forEach(function(option) {
-                        option.selected = false;
+                var assigneeBox = document.getElementById('card-assignee-input');
+                if (assigneeBox) {
+                    Array.from(assigneeBox.querySelectorAll('input[type="checkbox"]')).forEach(function(box) {
+                        box.checked = false;
                     });
                 }
                 if (errorAlert) {
@@ -373,10 +373,10 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 }).filter(function(s) {
                     return s !== '';
                 });
-                var editAssigneeSelect = document.getElementById('edit-card-assignee-input');
-                if (editAssigneeSelect) {
-                    Array.from(editAssigneeSelect.options).forEach(function(option) {
-                        option.selected = selectedIds.indexOf(option.value) !== -1;
+                var editAssigneeBox = document.getElementById('edit-card-assignee-input');
+                if (editAssigneeBox) {
+                    Array.from(editAssigneeBox.querySelectorAll('input[type="checkbox"]')).forEach(function(box) {
+                        box.checked = selectedIds.indexOf(box.value) !== -1;
                     });
                 }
                 if (editErrorAlert) {
@@ -445,11 +445,12 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                     var newDesc = document.getElementById('edit-card-desc-input').value.trim();
                     var newDuedateStr = document.getElementById('edit-card-duedate-input').value;
                     var newUrl = document.getElementById('edit-card-url-input').value.trim();
-                    var newAssigneeSelect = document.getElementById('edit-card-assignee-input');
+                    var newAssigneeBox = document.getElementById('edit-card-assignee-input');
                     var newAssigneeIds = [];
-                    if (newAssigneeSelect) {
-                        newAssigneeIds = Array.from(newAssigneeSelect.selectedOptions).map(function(option) {
-                            return parseInt(option.value, 10);
+                    if (newAssigneeBox) {
+                        var checkedBoxes = newAssigneeBox.querySelectorAll('input[type="checkbox"]:checked');
+                        newAssigneeIds = Array.from(checkedBoxes).map(function(box) {
+                            return parseInt(box.value, 10);
                         }).filter(function(value) {
                             return !isNaN(value);
                         });
@@ -622,11 +623,12 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                     var title = document.getElementById('card-title-input').value.trim();
                     var desc = document.getElementById('card-desc-input').value.trim();
                     var duedateStr = document.getElementById('card-duedate-input').value;
-                    var assigneeSelect = document.getElementById('card-assignee-input');
+                    var assigneeBox = document.getElementById('card-assignee-input');
                     var assigneeIds = [];
-                    if (assigneeSelect) {
-                        assigneeIds = Array.from(assigneeSelect.selectedOptions).map(function(option) {
-                            return parseInt(option.value, 10);
+                    if (assigneeBox) {
+                        var createChecked = assigneeBox.querySelectorAll('input[type="checkbox"]:checked');
+                        assigneeIds = Array.from(createChecked).map(function(box) {
+                            return parseInt(box.value, 10);
                         }).filter(function(value) {
                             return !isNaN(value);
                         });

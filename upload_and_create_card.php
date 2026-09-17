@@ -44,6 +44,13 @@ if ($duedate > 0 && $duedate < (time() - 300)) {
     exit;
 }
 
+// Validate title (đồng nhất với update_card: không cho rỗng).
+$title = trim((string)$title);
+if ($title === '') {
+    echo json_encode(['status' => false, 'message' => get_string('required', 'mod_kanban')]);
+    exit;
+}
+
 kanban_check_wip_limit($column, $kanban->id);
 
 global $DB, $USER;
@@ -67,7 +74,7 @@ $card->timecreated = time();
 $card->timemodified = time();
 
 $cardid = $DB->insert_record('kanban_cards', $card);
-kanban_set_card_assignees($cardid, $assigneeids, $cm);
+kanban_set_card_assignees($cardid, $assigneeids);
 \mod_kanban\event\card_created::create([
     'objectid' => $cardid,
     'context' => $context,
