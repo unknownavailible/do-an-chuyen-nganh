@@ -26,7 +26,7 @@ Các function hiện tại ban đầu đang trust dữ liệu gửi từ client,
 - `kanban_user_has_group_access($cm, $groupid, $context = null)`
 - `kanban_validate_and_get_card($cardid, $cm, $kanban, $requiredcapability = 'mod/kanban:managecards')`
 - `kanban_validate_and_get_column($columnid, $kanbanid, $cm, $requiredcapability = 'mod/kanban:managecards')`
-- `kanban_check_wip_limit($column, $kanbanid, $excludeid = 0)`
+- `kanban_check_wip_limit($column, $kanbanid, $groupid = 0)`
 
 Chức năng:
 - kiểm tra `group` hợp lệ
@@ -48,7 +48,7 @@ Sau khi sửa:
 - gọi `require_capability('mod/kanban:managecards', $context)`
 - gọi `require_sesskey()`
 - validate `card` và `column` bằng helper chia sẻ
-- kiểm tra WIP limit trước khi cập nhật nếu chuyển sang cột đã đạt giới hạn
+- kiểm tra WIP limit theo group trước khi chuyển sang cột đã đạt giới hạn
 
 ### 3) Sửa `create_card`
 Trước đó:
@@ -63,7 +63,7 @@ Sau khi sửa:
 - kiểm tra `kanbanid` phải là instance đang mở của cm
 - kiểm tra `columnid` thuộc `kanbanid` này
 - kiểm tra `groups_get_activity_group` và `groups_is_member` nếu chưa có `accessallgroups`
-- gọi `kanban_check_wip_limit()` trước khi insert
+- gọi `kanban_check_wip_limit()` theo group trước khi insert
 
 ### 4) Sửa `delete_card`
 Trước đó:

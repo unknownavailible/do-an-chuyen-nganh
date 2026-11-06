@@ -1,11 +1,22 @@
 define(['core/ajax', 'core/notification'], function(ajax, notification) {
+    /**
+     * Returns a language string preloaded by strings_for_js() in view.php.
+     *
+     * @param {string} key String identifier.
+     * @param {Object|string} [a] Optional value for {$a} placeholders.
+     * @returns {string} Translated string.
+     */
+    function getString(key, a) {
+        return M.util.get_string(key, 'mod_kanban', a);
+    }
+
     return {
         init: function(cmid, kanbanid) {
             var draggedCard = null;
             var isDragging = false;
 
             // ==========================================
-            // 1. KÉO THẢ THẺ (DRAG & DROP)
+            // 1. DRAG & DROP CARDS
             // ==========================================
             document.querySelectorAll('.kanban-card').forEach(function(card) {
                 card.addEventListener('dragstart', function(e) {
@@ -24,7 +35,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 });
             });
 
-            // Vùng thả thẻ (Columns)
+            // Drop zones (columns).
             document.querySelectorAll('.kanban-card-list').forEach(function(column) {
                 column.addEventListener('dragover', function(e) {
                     e.preventDefault();
@@ -79,7 +90,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
             });
 
             // ==========================================
-            // 2. ĐIỀU KHIỂN POPUP MODAL (CHUẨN 100%)
+            // 2. ADD CARD MODAL
             // ==========================================
             var modal = document.getElementById('modalAddCard');
             var errorAlert = document.getElementById('card-error-alert');
@@ -119,7 +130,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                     errorAlert.innerText = '';
                 }
 
-                // Hiển thị Modal & Lớp mờ nền
+                // Show the modal and its backdrop.
                 modal.style.display = 'block';
                 modal.classList.add('show');
                 document.body.classList.add('modal-open');
@@ -150,7 +161,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
             }
 
             // ==========================================
-            // XEM CHI TIẾT CÔNG VIỆC (MODAL DETAIL)
+            // CARD DETAIL MODAL
             // ==========================================
             var detailModal = null;
 
@@ -174,12 +185,12 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 var commentsEl = document.getElementById('detail-card-comments');
                 var historyEl = document.getElementById('detail-card-history');
                 var attachmentsEl = document.getElementById('detail-card-attachments');
-                commentsEl.innerHTML = '<div class="text-muted">Đang tải...</div>';
+                commentsEl.innerHTML = '<div class="text-muted">' + getString('loading') + '</div>';
                 if (historyEl) {
                     historyEl.innerHTML = '';
                 }
                 if (attachmentsEl) {
-                    attachmentsEl.innerHTML = '<div class="text-muted">Đang tải file đính kèm...</div>';
+                    attachmentsEl.innerHTML = '<div class="text-muted">' + getString('loadingattachments') + '</div>';
                 }
                 ajax.call([{
                     methodname: 'mod_kanban_get_card_activity',
@@ -189,16 +200,16 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                         return '<div class="border-bottom py-2"><strong>' + escapeHtml(item.author) + '</strong>' +
                             '<small class="text-muted ms-2">' + escapeHtml(item.timecreated) + '</small><div>' +
                             escapeHtml(item.comment) + '</div></div>';
-                    }).join('') : '<div class="text-muted">Chưa có bình luận.</div>';
+                    }).join('') : '<div class="text-muted">' + getString('nocomments') + '</div>';
                     if (historyEl) {
                         historyEl.innerHTML = activity.history.length ? activity.history.map(function(item) {
                             return '<div class="border-bottom py-2"><strong>' + escapeHtml(item.author) + '</strong> ' +
                                 escapeHtml(item.details || item.action) + '<small class="text-muted d-block">' +
                                 escapeHtml(item.timecreated) + '</small></div>';
-                        }).join('') : '<div class="text-muted">Chưa có lịch sử.</div>';
+                        }).join('') : '<div class="text-muted">' + getString('nohistory') + '</div>';
                     }
                 }).fail(function() {
-                    commentsEl.innerHTML = '<div class="text-danger">Không thể tải hoạt động của thẻ.</div>';
+                    commentsEl.innerHTML = '<div class="text-danger">' + getString('activityloaderror') + '</div>';
                 });
 
                 ajax.call([{
@@ -209,14 +220,14 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                         return;
                     }
                     if (!response.files || !response.files.length) {
-                        attachmentsEl.innerHTML = '<span class="text-muted">Chưa có file đính kèm.</span>';
+                        attachmentsEl.innerHTML = '<span class="text-muted">' + getString('nofiles') + '</span>';
                         return;
                     }
                     attachmentsEl.innerHTML = response.files.map(function(file) {
                         var deleteButton = '';
                         deleteButton = '<button type="button" class="btn btn-link btn-sm text-danger p-0 ms-2 ' +
                             'delete-card-file" data-filehash="' + escapeHtml(file.hash) + '" data-cardid="' +
-                            cardId + '" title="Xóa file"><i class="fa fa-trash"></i></button>';
+                            cardId + '" title="' + getString('deletefile') + '"><i class="fa fa-trash"></i></button>';
                         return '<div class="d-flex align-items-center justify-content-between border-bottom py-2">' +
                             '<a href="' + escapeHtml(file.url) + '" target="_blank" ' +
                             'class="text-primary text-decoration-underline me-2">' +
@@ -225,15 +236,15 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                     }).join('');
                 }).fail(function() {
                     if (attachmentsEl) {
-                        attachmentsEl.innerHTML = '<span class="text-muted">Không thể tải file đính kèm.</span>';
+                        attachmentsEl.innerHTML = '<span class="text-muted">' + getString('fileloaderror') + '</span>';
                     }
                 });
                 var titleEl = cardElement.querySelector('.fw-bold.text-dark');
                 var descEl = cardElement.querySelector('.text-muted.small.text-truncate');
-                var title = titleEl ? titleEl.textContent.trim() : 'Không có tiêu đề';
-                var desc = descEl ? descEl.textContent.trim() : 'Không có mô tả';
+                var title = titleEl ? titleEl.textContent.trim() : getString('notitle');
+                var desc = descEl ? descEl.textContent.trim() : getString('nodesc');
 
-                // Lấy thông tin hạn hoàn thành từ modal
+                // Read the due date from the card element.
                 var duedateText = '';
                 var alertClass = 'd-none';
                 var alertText = '';
@@ -242,34 +253,34 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 if (dueDateContainer && dueDateContainer.querySelector('.badge.bg-danger')) {
                     duedateText = dueDateContainer.querySelector('.badge.bg-danger').textContent.trim();
                     alertClass = '';
-                    alertText = '⚠️ Công việc này đã quá hạn!';
+                    alertText = getString('overduealert');
                 } else if (dueDateContainer && dueDateContainer.querySelector('.badge.bg-warning')) {
                     duedateText = dueDateContainer.querySelector('.badge.bg-warning').textContent.trim();
                     alertClass = '';
-                    alertText = '⏰ Công việc sắp đến hạn!';
+                    alertText = getString('duesoonalert');
                 } else if (dueDateContainer && dueDateContainer.querySelector('small.text-muted')) {
                     duedateText = dueDateContainer.querySelector('small.text-muted').textContent.trim();
                 }
 
-                // Cập nhật thông tin trong modal
+                // Fill the modal with the card data.
                 document.getElementById('detail-card-title').textContent = title;
-                document.getElementById('detail-card-desc').textContent = desc || 'Không có mô tả';
-                document.getElementById('detail-card-assignee').textContent = cardElement.dataset.assignees || 'Chưa phân công';
-                document.getElementById('detail-card-duedate').textContent = duedateText || 'Không có hạn hoàn thành';
+                document.getElementById('detail-card-desc').textContent = desc || getString('nodesc');
+                document.getElementById('detail-card-assignee').textContent =
+                    cardElement.dataset.assignees || getString('dashboard_unassigned');
+                document.getElementById('detail-card-duedate').textContent = duedateText || getString('noduedate');
                 document.getElementById('detail-card-status').textContent =
-                    cardElement.dataset.columntitle || 'Không xác định';
+                    cardElement.dataset.columntitle || getString('unknown');
 
-                // Xử lý hiển thị đường link
+                // Show or hide the submission link.
                 var submissionUrl = cardElement.dataset.submissionurl;
                 var urlContainer = document.getElementById('detail-card-url-container');
                 var urlAnchor = document.getElementById('detail-card-url');
-                //Phần thêm kiểm tra nếu submissionUrl là null hoặc undefined, thì không hiển thị link
                 if (submissionUrl && submissionUrl.trim() !== '') {
                     urlAnchor.href = submissionUrl;
                     urlAnchor.textContent = submissionUrl;
-                    urlContainer.classList.remove('d-none'); // Gỡ bỏ class ẩn
+                    urlContainer.classList.remove('d-none');
                 } else {
-                    urlContainer.classList.add('d-none'); // Giữ nguyên ẩn nếu không có link
+                    urlContainer.classList.add('d-none');
                 }
 
                 var alertEl = document.getElementById('detail-card-alert');
@@ -280,7 +291,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                     alertEl.classList.add('d-none');
                 }
 
-                // Hiển thị modal
+                // Show the modal.
                 detailModal.style.display = 'block';
                 detailModal.classList.add('show');
                 document.body.classList.add('modal-open');
@@ -323,7 +334,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
             }
 
             // ==========================================
-            // 2b. SỬA THẺ (gồm sửa người phụ trách)
+            // 2b. EDIT CARD (including assignees)
             // ==========================================
             var editModal = null;
             var editErrorAlert = null;
@@ -457,7 +468,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                     }
                     editErrorAlert = document.getElementById('edit-card-error-alert');
                     if (!newTitle) {
-                        editErrorAlert.innerText = 'Vui lòng nhập tên công việc!';
+                        editErrorAlert.innerText = getString('required');
                         editErrorAlert.classList.remove('d-none');
                         return;
                     }
@@ -466,7 +477,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                         var selectedDate = new Date(newDuedateStr);
                         var now = new Date();
                         if (selectedDate.getTime() < (now.getTime() - 60000)) {
-                            editErrorAlert.innerText = 'Lỗi: Hạn hoàn thành không thể là thời gian trong quá khứ!';
+                            editErrorAlert.innerText = getString('error_duedate_past');
                             editErrorAlert.classList.remove('d-none');
                             return;
                         }
@@ -489,14 +500,14 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                             window.location.reload();
                         }
                     }).fail(function(error) {
-                        var message = (error && error.message) ? error.message : 'Có lỗi xảy ra!';
+                        var message = (error && error.message) ? error.message : getString('errorgeneric');
                         editErrorAlert.innerText = message;
                         editErrorAlert.classList.remove('d-none');
                     });
                 }
             });
 
-            // Thêm click handler cho các card (xem chi tiết)
+            // Open the detail modal when a card is clicked.
             document.addEventListener('click', function(e) {
                 if (isDragging) {
                     return;
@@ -559,7 +570,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 if (!fileHash || !cardId) {
                     return;
                 }
-                if (!confirm('Bạn có chắc muốn xóa file đính kèm này không?')) {
+                if (!confirm(getString('confirmdeletefile'))) {
                     return;
                 }
                 ajax.call([{
@@ -573,7 +584,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 }).fail(notification.exception);
             });
 
-            // Đóng detail modal
+            // Close the detail modal.
             document.addEventListener('click', function(e) {
                 if (isDragging) {
                     return;
@@ -585,7 +596,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 }
             });
 
-            // Đóng modal khi click vào backdrop
+            // Close the modal when the backdrop is clicked.
             document.addEventListener('click', function(e) {
                 if (detailModal && detailModal.style.display === 'block' && e.target.id === 'detail-modal-backdrop') {
                     closeDetailModal();
@@ -614,7 +625,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
             });
 
             // ==========================================
-            // 3. XỬ LÝ TẠO THẺ & KIỂM TRA THỜI GIAN
+            // 3. CREATE CARD & DATE VALIDATION
             // ==========================================
             var btnSubmit = document.getElementById('btn-submit-card');
             if (btnSubmit) {
@@ -634,22 +645,22 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                         });
                     }
 
-                    // Validate Tên công việc
+                    // Validate the task name.
                     if (!title) {
-                        errorAlert.innerText = 'Vui lòng nhập tên công việc!';
+                        errorAlert.innerText = getString('required');
                         errorAlert.classList.remove('d-none');
                         return;
                     }
 
-                    // Validate Ngày tháng
+                    // Validate the due date.
                     var duedateTimestamp = 0;
                     if (duedateStr) {
                         var selectedDate = new Date(duedateStr);
                         var now = new Date();
 
-                        // Kiểm tra nếu ngày chọn ở quá khứ
+                        // Reject a date in the past.
                         if (selectedDate.getTime() < (now.getTime() - 60000)) {
-                            errorAlert.innerText = 'Lỗi: Hạn hoàn thành không thể là thời gian trong quá khứ!';
+                            errorAlert.innerText = getString('error_duedate_past');
                             errorAlert.classList.remove('d-none');
                             return;
                         }
@@ -686,11 +697,13 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                             try {
                                 data = JSON.parse(text);
                             } catch (parseError) {
-                                throw new Error('Server trả về không phải JSON (HTTP ' +
-                                    response.status + '): ' + (text || 'trống').substring(0, 300));
+                                throw new Error(getString('errornotjson', {
+                                    status: response.status,
+                                    body: (text || '').substring(0, 300)
+                                }));
                             }
                             if (!response.ok || !data.status) {
-                                throw new Error(data.message || ('Server lỗi HTTP ' + response.status));
+                                throw new Error(data.message || getString('errorhttpcode', response.status));
                             }
                             return data;
                         });
@@ -698,7 +711,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                         closeModal();
                         window.location.reload();
                     }).catch(function(error) {
-                        errorAlert.innerText = error.message || 'Có lỗi xảy ra!';
+                        errorAlert.innerText = error.message || getString('errorgeneric');
                         errorAlert.classList.remove('d-none');
                     });
                 });
@@ -736,19 +749,19 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 if (addButton || editButton) {
                     var editing = !!editButton;
                     var data = editing ? editButton.dataset : {};
-                    var title = prompt('Tên cột:', data.title || '');
+                    var title = prompt(getString('columnnameprompt'), data.title || '');
                     if (title === null) {
                         return;
                     }
-                    var description = prompt('Mô tả cột:', data.description || '');
+                    var description = prompt(getString('columndescprompt'), data.description || '');
                     if (description === null) {
                         return;
                     }
-                    var color = prompt('Màu cột dạng #RRGGBB:', data.color || '#f4f5f7');
+                    var color = prompt(getString('columncolorprompt'), data.color || '#f4f5f7');
                     if (color === null) {
                         return;
                     }
-                    var wip = prompt('WIP limit (0 = không giới hạn):', data.wip || '0');
+                    var wip = prompt(getString('columnwipprompt'), data.wip || '0');
                     if (wip === null) {
                         return;
                     }
@@ -777,8 +790,7 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
                 }
 
                 if (deleteButton) {
-                    if (!confirm('Xóa cột "' + deleteButton.dataset.title +
-                        '"? Cột phải rỗng mới được xóa.')) {
+                    if (!confirm(getString('confirmdeletecolumn', deleteButton.dataset.title))) {
                         return;
                     }
                     columnRequest('mod_kanban_delete_column', {
@@ -809,13 +821,13 @@ define(['core/ajax', 'core/notification'], function(ajax, notification) {
             });
 
             // ==========================================
-            // 4. XỬ LÝ XÓA THẺ
+            // 4. DELETE CARD
             // ==========================================
             document.querySelectorAll('.btn-delete-card').forEach(function(btn) {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
                     var cardId = this.dataset.cardid;
-                    if (confirm('Bạn có chắc chắn muốn xóa công việc này không?')) {
+                    if (confirm(getString('confirmdeletecard'))) {
                         ajax.call([{
                             methodname: 'mod_kanban_delete_card',
                             args: {

@@ -12,6 +12,7 @@ $creator = !empty($kanban->creatorid) ? $DB->get_record('user', ['id' => $kanban
 require_login($course, true, $cm);
 $context = context_module::instance($cm->id);
 require_capability('mod/kanban:view', $context);
+kanban_require_single_group_membership($cm);
 
 $PAGE->set_url('/mod/kanban/view.php', ['id' => $cm->id]);
 $PAGE->set_title(format_string($kanban->name));
@@ -101,6 +102,15 @@ $templatecontext = [
     'columns' => $column_data
 ];
 
+// Preload every string used by amd/src/board.js so M.util.get_string() stays synchronous.
+$PAGE->requires->strings_for_js([
+    'loading', 'loadingattachments', 'nocomments', 'nohistory', 'activityloaderror',
+    'nofiles', 'fileloaderror', 'deletefile', 'notitle', 'nodesc', 'overduealert',
+    'duesoonalert', 'noduedate', 'unknown', 'errorgeneric', 'confirmdeletefile',
+    'confirmdeletecard', 'columnnameprompt', 'columndescprompt', 'columncolorprompt',
+    'columnwipprompt', 'confirmdeletecolumn', 'errornotjson', 'errorhttpcode',
+    'required', 'error_duedate_past', 'dashboard_unassigned',
+], 'mod_kanban');
 $PAGE->requires->js_call_amd('mod_kanban/board', 'init', [$cm->id, $kanban->id]);
 
 echo $OUTPUT->header();

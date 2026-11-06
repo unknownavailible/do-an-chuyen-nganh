@@ -157,6 +157,7 @@ class column_api extends external_api {
                 !has_capability('mod/kanban:viewdashboard', $context)) {
             throw new moodle_exception('nopermissions', 'error');
         }
+        \kanban_require_single_group_membership($cm);
         // Sesskey do framework (lib/ajax/service.php) kiểm tra; không gọi ở đây để WS token hoạt động.
         $kanban = $DB->get_record('kanban', ['id' => $cm->instance], '*', MUST_EXIST);
         if ($kanbanid && (int)$kanbanid !== (int)$kanban->id) {

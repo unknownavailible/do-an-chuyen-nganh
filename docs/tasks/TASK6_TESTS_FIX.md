@@ -26,7 +26,11 @@ File `tests/kanban_external_test.php` bao gồm các test chính:
    - khi column đã đạt `wip_limit`, create card phải bị server từ chối
    - không phụ thuộc UI/JS
 
-4. `test_deadline_is_saved_and_overdue_detected`
+4. `test_wip_limit_is_enforced_when_moving_card`
+   - khi column đích đã đạt `wip_limit`, move card phải bị server từ chối
+   - giới hạn được tính riêng theo group
+
+5. `test_deadline_is_saved_and_overdue_detected`
    - lưu deadline đúng
    - card quá hạn có giá trị `duedate < time()` và thực thể được tạo đúng
 
@@ -51,3 +55,6 @@ File `tests/behat/mod_kanban.feature` mô tả các kịch bản sau:
 
 ## Ghi chú
 Đây là bộ test quan trọng để kiểm tra logic bảo mật và server-side validation của plugin. Tuy nhiên, để chạy đầy đủ trong môi trường Moodle thật cần phải bootstrap đủ môi trường PHPUnit/Behat của project Moodle, không chỉ syntax check đơn thuần.
+
+Test move/WIP mới được bổ sung sau lần xác minh trước. Chưa chạy lại PHPUnit
+trong môi trường hiện tại vì không có PHP CLI.

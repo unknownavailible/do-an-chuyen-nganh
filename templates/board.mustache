@@ -50,7 +50,7 @@
                         {{#description}}<small class="text-muted">{{description}}</small>{{/description}}
                     </div>
                     <div class="d-flex align-items-center gap-1">
-                        <span class="badge bg-secondary rounded-pill px-2 py-1">{{card_count}}{{#wip_limit}} / {{wip_limit}}{{/wip_limit}}</span>
+                        <span class="badge bg-secondary rounded-pill px-2 py-1">{{card_count}}</span>
                         {{#can_manage_columns}}
                             <button type="button" class="btn btn-sm btn-link p-0 btn-edit-column" data-columnid="{{id}}" data-title="{{title}}" data-description="{{description}}" data-color="{{color}}" data-wip="{{wip_limit}}" title="{{#str}}editcolumn, mod_kanban{{/str}}"><i class="fa fa-pencil"></i></button>
                             <button type="button" class="btn btn-sm btn-link text-danger p-0 btn-delete-column" data-columnid="{{id}}" data-title="{{title}}" title="{{#str}}deletecolumn, mod_kanban{{/str}}"><i class="fa fa-trash-o"></i></button>

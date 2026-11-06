@@ -49,11 +49,14 @@ class card_api extends \core_external\external_api {
         $card = kanban_validate_and_get_card($params['cardid'], $cm, $kanban, 'mod/kanban:managecards');
         $targetcolumn = kanban_validate_and_get_column($params['targetcolumnid'], $kanban->id, $cm, 'mod/kanban:managecards');
 
-        if ((int)$card->columnid !== (int)$params['targetcolumnid']) {
-            kanban_check_wip_limit($targetcolumn, $kanban->id, $card->id);
-        }
-
         $oldcolumnid = (int)$card->columnid;
+        if ($oldcolumnid !== (int)$targetcolumn->id &&
+                !kanban_check_wip_limit($targetcolumn, $kanban->id, $card->groupid)) {
+            throw new \moodle_exception('errorwiplimit', 'mod_kanban', '', (object)[
+                'column' => format_string($targetcolumn->title),
+                'limit' => (int)$targetcolumn->wip_limit,
+            ]);
+        }
         $card->columnid = $params['targetcolumnid'];
         $card->timemodified = time();
         $DB->update_record('kanban_cards', $card);
@@ -164,6 +167,12 @@ class card_api extends \core_external\external_api {
         if (!has_capability('moodle/site:accessallgroups', $context) && $currentgroup && !groups_is_member($currentgroup, $USER->id)) {
             throw new \moodle_exception('nopermissions', 'error');
         }
+        if (!kanban_check_wip_limit($targetcolumn, $kanban->id, $currentgroup ?: 0)) {
+            throw new \moodle_exception('errorwiplimit', 'mod_kanban', '', (object)[
+                'column' => format_string($targetcolumn->title),
+                'limit' => (int)$targetcolumn->wip_limit,
+            ]);
+        }
 
         $title = trim((string)$params['title']);
         if ($title === '') {
@@ -173,8 +182,6 @@ class card_api extends \core_external\external_api {
         if ($params['duedate'] > 0 && $params['duedate'] < (time() - 300)) {
             throw new \moodle_exception('error_duedate_past', 'mod_kanban');
         }
-
-        kanban_check_wip_limit($targetcolumn, $kanban->id);
 
         $assigneeids = kanban_validate_assignee_list($cm, $params['assignees']);
 
@@ -205,6 +212,7 @@ class card_api extends \core_external\external_api {
         kanban_log_card_change($cardid, 'created', get_string('history_created', 'mod_kanban'));
         $card->id = $cardid;
         kanban_notify_card_assignees($card, $cm, 'assigned');
+        kanban_notify_group_new_todo_card($card, $cm);
 
         return [
             'status' => true,
@@ -441,7 +449,8 @@ class card_api extends \core_external\external_api {
 
         $fs = get_file_storage();
         $file = $fs->get_file_by_hash($params['filehash']);
-        if (!$file || $file->get_itemid() !== (int)$card->id || $file->get_contextid() !== $context->id) {
+        if (!$file || (int)$file->get_itemid() !== (int)$card->id ||
+                (int)$file->get_contextid() !== (int)$context->id) {
             throw new \moodle_exception('filenotfound', 'error');
         }
 
@@ -483,7 +492,11 @@ class card_api extends \core_external\external_api {
         $comments = [];
         if ($commentsenabled) {
             foreach ($DB->get_records('kanban_card_comments', ['cardid' => $card->id], 'timecreated ASC') as $comment) {
-                $user = $DB->get_record('user', ['id' => $comment->userid], 'id,firstname,lastname');
+                $user = $DB->get_record(
+                    'user',
+                    ['id' => $comment->userid],
+                    'id, firstname, lastname, firstnamephonetic, lastnamephonetic, middlename, alternatename'
+                );
                 $author = $user ? fullname($user) : get_string('unknownuser', 'moodle');
                 $comments[] = ['author' => $author, 'comment' => format_text($comment->comment, FORMAT_PLAIN),
                     'timecreated' => userdate($comment->timecreated)];
@@ -493,7 +506,11 @@ class card_api extends \core_external\external_api {
         $history = [];
         if ($historyenabled && $canviewhistory) {
             foreach ($DB->get_records('kanban_card_history', ['cardid' => $card->id], 'timecreated DESC') as $entry) {
-                $user = $DB->get_record('user', ['id' => $entry->userid], 'id,firstname,lastname');
+                $user = $DB->get_record(
+                    'user',
+                    ['id' => $entry->userid],
+                    'id, firstname, lastname, firstnamephonetic, lastnamephonetic, middlename, alternatename'
+                );
                 $author = $user ? fullname($user) : get_string('unknownuser', 'moodle');
                 $details = $entry->details;
                 if ($entry->action === 'moved' && preg_match('/cot\s+(\d+)/i', (string)$details, $matches)) {

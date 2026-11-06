@@ -23,7 +23,8 @@ function kanban_add_instance($kanban, $mform = null) {
     // 1. Lưu bản ghi chính vào bảng mdl_kanban
     $kanbanid = $DB->insert_record('kanban', $kanban);
 
-    // 2. Tự động khởi tạo 3 cột mặc định cho bảng Kanban này
+    // 2. Tự động khởi tạo 3 cột mặc định cho bảng Kanban này.
+    // Tất cả cột đều không giới hạn số lượng thẻ (WIP limit đã bị tắt).
     $defaultcolumns = [
         [
             'title' => get_string('column_todo', 'mod_kanban'),
@@ -35,7 +36,7 @@ function kanban_add_instance($kanban, $mform = null) {
             'title' => get_string('column_inprogress', 'mod_kanban'),
             'color' => '#e9f2ff',
             'sortorder' => 1,
-            'wip_limit' => 3 // Ví dụ giới hạn 3 việc đang làm
+            'wip_limit' => 0
         ],
         [
             'title' => get_string('column_done', 'mod_kanban'),
@@ -128,6 +129,160 @@ function kanban_get_linked_assignment_info($kanban) {
 }
 
 /**
+ * Get read-only submission and grade information for the linked assignment.
+ *
+ * This helper only reads existing submissions and grades. In particular, it
+ * avoids the Assignment APIs' default behaviour of creating missing records.
+ *
+ * @param stdClass $kanban Kanban instance.
+ * @param stdClass $cm Kanban course module.
+ * @param int $groupid Optional group selected in the Kanban dashboard.
+ * @return array|null Assignment progress data, or null when no assignment is linked.
+ */
+function kanban_get_linked_assignment_progress($kanban, $cm, $groupid = 0) {
+    global $CFG, $DB;
+
+    $info = kanban_get_linked_assignment_info($kanban);
+    if (!$info || empty($info['url'])) {
+        return null;
+    }
+
+    $assignmentrecord = $DB->get_record('assign', [
+        'id' => (int)$kanban->assignmentid,
+        'course' => (int)$kanban->course,
+    ], '*', MUST_EXIST);
+    $assignmentcmrecord = get_coursemodule_from_instance(
+        'assign',
+        $assignmentrecord->id,
+        $assignmentrecord->course,
+        false,
+        IGNORE_MISSING
+    );
+    if (!$assignmentcmrecord) {
+        return null;
+    }
+
+    $assignmentcm = get_fast_modinfo($assignmentrecord->course)->get_cm($assignmentcmrecord->id);
+    $assignmentcontext = context_module::instance($assignmentcm->id);
+    if (!$assignmentcm->uservisible) {
+        return [
+            'name' => $info['name'],
+            'url' => $info['url'],
+            'state' => 'unavailable',
+            'rows' => [],
+            'showgrades' => false,
+        ];
+    }
+
+    require_once($CFG->dirroot . '/mod/assign/locallib.php');
+    $assignment = new \assign($assignmentcontext, $assignmentcm, get_course($assignmentrecord->course));
+
+    $groupid = (int)$groupid;
+    $separategroups = groups_get_activity_groupmode($assignmentcm) == SEPARATEGROUPS;
+    $accessallgroups = has_capability('moodle/site:accessallgroups', $assignmentcontext);
+    if (!$groupid && $separategroups && !$accessallgroups) {
+        $groupid = (int)groups_get_activity_group($assignmentcm, true);
+    }
+    if ($separategroups && !$accessallgroups && !$groupid) {
+        return [
+            'name' => $info['name'],
+            'url' => $info['url'],
+            'state' => 'selectgroup',
+            'groupselectorcmid' => $assignmentcm->id,
+            'rows' => [],
+            'showgrades' => false,
+        ];
+    }
+    if ($groupid && !$accessallgroups) {
+        $allowedgroups = groups_get_activity_allowed_groups($assignmentcm);
+        if (!array_key_exists($groupid, $allowedgroups)) {
+            return [
+                'name' => $info['name'],
+                'url' => $info['url'],
+                'state' => 'unavailable',
+                'rows' => [],
+                'showgrades' => false,
+            ];
+        }
+    }
+    if (!$assignment->can_view_grades($groupid ?: null)) {
+        return [
+            'name' => $info['name'],
+            'url' => $info['url'],
+            'state' => 'nopermission',
+            'rows' => [],
+            'showgrades' => false,
+        ];
+    }
+
+    if (!empty($assignmentrecord->blindmarking) &&
+            !has_capability('mod/assign:viewblinddetails', $assignmentcontext)) {
+        return [
+            'name' => $info['name'],
+            'url' => $info['url'],
+            'state' => 'blindmarking',
+            'rows' => [],
+            'showgrades' => false,
+        ];
+    }
+
+    $participants = get_enrolled_users(
+        $assignmentcontext,
+        'mod/assign:submit',
+        $groupid,
+        'u.id, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename',
+        'u.lastname, u.firstname'
+    );
+    $showgrades = $assignment->can_view_grades($groupid ?: null);
+    $rows = [];
+    foreach ($participants as $participant) {
+        if (!empty($assignmentrecord->teamsubmission)) {
+            $submissiongroup = $assignment->get_submission_group($participant->id);
+            $submission = $submissiongroup ?
+                $assignment->get_group_submission($participant->id, $submissiongroup->id, false) : false;
+        } else {
+            $submission = $assignment->get_user_submission($participant->id, false);
+        }
+
+        $status = $submission && !empty($submission->status) ? $submission->status : '';
+        $statuskey = 'submissionstatus_' . $status;
+        if (!get_string_manager()->string_exists($statuskey, 'assign')) {
+            $statuskey = 'submissionstatus_';
+        }
+
+        $gradevalue = null;
+        $hasgrade = false;
+        if ($showgrades && $submission) {
+            // Passing an attempt number prevents get_user_grade() creating absent submissions.
+            $grade = $assignment->get_user_grade($participant->id, false, (int)$submission->attemptnumber);
+            if ($grade && $grade->grade !== null && (float)$grade->grade >= 0) {
+                $gradeitem = $assignment->get_grade_item();
+                if ($gradeitem) {
+                    $gradevalue = grade_format_gradevalue($grade->grade, $gradeitem);
+                    $hasgrade = ($gradevalue !== '');
+                }
+            }
+        }
+
+        $rows[] = [
+            'name' => fullname($participant),
+            'status' => get_string($statuskey, 'assign'),
+            'grade' => $gradevalue,
+            'hasgrade' => $hasgrade,
+            'url' => $info['url'],
+        ];
+    }
+
+    return [
+        'name' => $info['name'],
+        'url' => $info['url'],
+        'state' => 'ready',
+        'rows' => $rows,
+        'showgrades' => $showgrades,
+    ];
+}
+
+/**
  * Xóa bài tập Kanban khỏi khóa học.
  * Tự động dọn dẹp sạch sẽ các cột và thẻ thuộc bài tập này.
  *
@@ -201,6 +356,41 @@ function kanban_user_has_group_access($cm, $groupid, $context = null) {
     return groups_is_member($groupid, $USER->id);
 }
 
+/**
+ * Prevent Kanban participants from using more than one course group.
+ *
+ * Group membership itself remains managed by Moodle; this only restricts
+ * access to group-enabled Kanban activities.
+ *
+ * @param stdClass $cm Course module.
+ * @return void
+ */
+function kanban_require_single_group_membership($cm) {
+    global $DB, $USER;
+
+    if (empty($cm->groupmode) || isguestuser()) {
+        return;
+    }
+
+    $context = context_module::instance($cm->id);
+    $coursecontext = context_course::instance($cm->course);
+    if (has_capability('moodle/site:accessallgroups', $context) ||
+            has_capability('moodle/course:managegroups', $coursecontext)) {
+        return;
+    }
+
+    $groupcount = $DB->count_records_sql(
+        'SELECT COUNT(DISTINCT gm.groupid)
+           FROM {groups_members} gm
+           JOIN {groups} g ON g.id = gm.groupid
+          WHERE gm.userid = :userid AND g.courseid = :courseid',
+        ['userid' => $USER->id, 'courseid' => $cm->course]
+    );
+    if ($groupcount > 1) {
+        throw new moodle_exception('error_multiple_groups', 'mod_kanban');
+    }
+}
+
 function kanban_validate_and_get_card($cardid, $cm, $kanban, $requiredcapability = 'mod/kanban:managecards') {
     global $DB, $USER;
 
@@ -214,6 +404,7 @@ function kanban_validate_and_get_card($cardid, $cm, $kanban, $requiredcapability
 
     $context = context_module::instance($cm->id);
     require_capability($requiredcapability, $context);
+    kanban_require_single_group_membership($cm);
 
     if ((int)$cm->instance !== (int)$kanban->id) {
         throw new 
@@ -242,61 +433,121 @@ function kanban_validate_and_get_column($columnid, $kanbanid, $cm, $requiredcapa
 
     $context = context_module::instance($cm->id);
     require_capability($requiredcapability, $context);
+    kanban_require_single_group_membership($cm);
 
     $column = $DB->get_record('kanban_columns', ['id' => (int)$columnid, 'kanbanid' => (int)$kanbanid], '*', MUST_EXIST);
     return $column;
 }
 
-function kanban_check_wip_limit($column, $kanbanid, $excludeid = 0) {
+function kanban_check_wip_limit($column, $kanbanid, $groupid = 0) {
     global $DB;
 
-    if (empty($column) || (int)$column->wip_limit <= 0) {
+    if (empty($column->wip_limit)) {
         return true;
     }
 
-    $count = $DB->count_records('kanban_cards', ['kanbanid' => (int)$kanbanid, 'columnid' => (int)$column->id]);
-    if ($excludeid) {
-        $count = $DB->count_records_select('kanban_cards', 'kanbanid = :kanbanid AND columnid = :columnid AND id <> :excludeid', [
-            'kanbanid' => (int)$kanbanid,
-            'columnid' => (int)$column->id,
-            'excludeid' => (int)$excludeid,
-        ]);
-    }
-
-    if ($count >= (int)$column->wip_limit) {
-        throw new \moodle_exception('errorwiplimit', 'mod_kanban', '', ['column' => format_string($column->title), 'limit' => $column->wip_limit]);
-    }
-
-    return true;
+    return $DB->count_records('kanban_cards', [
+        'kanbanid' => (int)$kanbanid,
+        'columnid' => (int)$column->id,
+        'groupid' => (int)$groupid,
+    ]) < (int)$column->wip_limit;
 }
 
-function kanban_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload, array $options = []) {
+/**
+ * Save uploaded card attachments to the module file area.
+ *
+ * @param int $cardid Card ID used as the file area item ID.
+ * @param stdClass $cm Course module.
+ * @param array $uploadedfiles PHP uploaded files structure.
+ * @return int Number of saved files.
+ */
+function kanban_save_card_attachments($cardid, $cm, array $uploadedfiles) {
+    global $USER;
+
+    $context = context_module::instance($cm->id);
+    $uploadgroups = [];
+    foreach ($uploadedfiles as $fieldname => $filedata) {
+        if (stripos($fieldname, 'attach') !== false) {
+            $uploadgroups[] = $filedata;
+        }
+    }
+
+    $fs = get_file_storage();
+    $filesaved = 0;
+    foreach ($uploadgroups as $attachments) {
+        if (empty($attachments['name'])) {
+            continue;
+        }
+
+        $names = is_array($attachments['name']) ? $attachments['name'] : [$attachments['name']];
+        $tmpnames = is_array($attachments['tmp_name'] ?? null) ? $attachments['tmp_name'] : [$attachments['tmp_name'] ?? ''];
+        $errors = is_array($attachments['error'] ?? null) ? $attachments['error'] : [$attachments['error'] ?? UPLOAD_ERR_NO_FILE];
+
+        foreach ($names as $index => $filename) {
+            if (empty($tmpnames[$index]) || !isset($errors[$index]) ||
+                    (int)$errors[$index] !== UPLOAD_ERR_OK) {
+                continue;
+            }
+
+            $cleanfilename = clean_param($filename, PARAM_FILE);
+            if ($cleanfilename === '') {
+                continue;
+            }
+
+            $fs->create_file_from_pathname([
+                'contextid' => $context->id,
+                'component' => 'mod_kanban',
+                'filearea' => 'card_attachments',
+                'itemid' => (int)$cardid,
+                'userid' => (int)$USER->id,
+                'filepath' => '/',
+                'filename' => $cleanfilename,
+            ], $tmpnames[$index]);
+            $filesaved++;
+        }
+    }
+
+    return $filesaved;
+}
+
+function kanban_get_accessible_card_attachment($course, $cm, $context, $filearea, $args) {
     global $DB, $USER;
 
     if ($context->contextlevel != CONTEXT_MODULE) {
-        send_file_not_found();
+        return false;
     }
 
     if ($filearea !== 'card_attachments') {
-        send_file_not_found();
+        return false;
     }
 
     require_login($course, false, $cm);
+    kanban_require_single_group_membership($cm);
 
     $itemid = (int)array_shift($args);
     $card = $DB->get_record('kanban_cards', ['id' => $itemid], '*', MUST_EXIST);
     if (!kanban_user_has_group_access($cm, $card->groupid, $context) && !has_capability('moodle/site:accessallgroups', $context)) {
-        send_file_not_found();
+        return false;
     }
 
-    $fs = get_file_storage();
     $filename = array_pop($args);
     if ($filename === null) {
-        send_file_not_found();
+        return false;
     }
     $filepath = $args ? '/' . implode('/', $args) . '/' : '/';
 
-    $file = $fs->get_file($context->id, 'mod_kanban', 'card_attachments', $itemid, $filepath, $filename);
+    return get_file_storage()->get_file(
+        $context->id,
+        'mod_kanban',
+        'card_attachments',
+        $itemid,
+        $filepath,
+        $filename
+    );
+}
+
+function kanban_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload, array $options = []) {
+    $file = kanban_get_accessible_card_attachment($course, $cm, $context, $filearea, $args);
     if (!$file) {
         send_file_not_found();
     }
@@ -325,7 +576,11 @@ function kanban_get_card_assignee_names($cardid) {
 
     $names = [];
     foreach ($assigneeids as $assigneeid) {
-        $user = $DB->get_record('user', ['id' => $assigneeid], 'id, firstname, lastname');
+        $user = $DB->get_record(
+            'user',
+            ['id' => $assigneeid],
+            'id, firstname, lastname, firstnamephonetic, lastnamephonetic, middlename, alternatename'
+        );
         if ($user) {
             $names[] = fullname($user);
         }
@@ -414,7 +669,11 @@ function kanban_get_group_members_for_assignee_selection($cm) {
     }
 
     if ($currentgroup) {
-        $members = groups_get_members($currentgroup, 'u.id, u.firstname, u.lastname', 'u.lastname, u.firstname');
+        $members = groups_get_members(
+            $currentgroup,
+            'u.id, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename',
+            'u.lastname, u.firstname'
+        );
         $users = [];
         foreach ($members as $member) {
             $users[] = [
@@ -425,7 +684,12 @@ function kanban_get_group_members_for_assignee_selection($cm) {
         return $users;
     }
 
-    $users = get_enrolled_users($context, '', 0, 'u.id, u.firstname, u.lastname');
+    $users = get_enrolled_users(
+        $context,
+        '',
+        0,
+        'u.id, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename'
+    );
     $result = [];
     foreach ($users as $user) {
         $result[] = [
@@ -447,16 +711,109 @@ function kanban_is_done_column($column, $kanbanid) {
     return $lastcolumn && (int)$lastcolumn->id === (int)$column->id;
 }
 
+/**
+ * Get the default workflow columns by their ordering.
+ *
+ * @param int $kanbanid Kanban instance ID.
+ * @return array Column IDs keyed by todo, inprogress and done.
+ */
+function kanban_get_workflow_column_ids($kanbanid) {
+    global $DB;
+
+    $columns = array_values($DB->get_records('kanban_columns', ['kanbanid' => (int)$kanbanid], 'sortorder ASC, id ASC'));
+    if (count($columns) < 3) {
+        return [];
+    }
+
+    return [
+        'todo' => (int)$columns[0]->id,
+        'inprogress' => (int)$columns[1]->id,
+        'done' => (int)$columns[count($columns) - 1]->id,
+    ];
+}
+
+/**
+ * Send a Moodle notification to enrolled members of the card's group.
+ *
+ * A card without a group notifies all users enrolled in the activity.
+ *
+ * @param stdClass $kanban Kanban instance.
+ * @param stdClass $cm Course module.
+ * @param int $groupid Group ID, or 0 for all enrolled activity users.
+ * @param string $provider Message provider name.
+ * @param string $subject Notification subject.
+ * @param string $messagebody Plain-text notification body.
+ * @return int Number of notifications accepted by Moodle's messaging API.
+ */
+function kanban_notify_group_members($kanban, $cm, $groupid, $provider, $subject, $messagebody) {
+    if (!get_config('mod_kanban', 'enablenotifications')) {
+        return 0;
+    }
+
+    $context = context_module::instance($cm->id);
+    // Full record: message_send() requires auth/suspended/deleted/emailstop on userto.
+    $recipients = get_enrolled_users($context, '', (int)$groupid);
+    $sent = 0;
+    $url = new moodle_url('/mod/kanban/view.php', ['id' => $cm->id]);
+
+    foreach ($recipients as $recipient) {
+        $notification = new \core\message\message();
+        $notification->component = 'mod_kanban';
+        $notification->name = $provider;
+        $notification->userfrom = \core_user::get_noreply_user();
+        $notification->userto = $recipient;
+        $notification->subject = $subject;
+        $notification->fullmessage = $messagebody . "\n\n" . format_string($kanban->name);
+        $notification->fullmessageformat = FORMAT_PLAIN;
+        $notification->smallmessage = $subject;
+        $notification->notification = 1;
+        $notification->contexturl = $url->out(false);
+        $notification->contexturlname = get_string('pluginname', 'mod_kanban');
+
+        if (message_send($notification) !== false) {
+            $sent++;
+        }
+    }
+
+    return $sent;
+}
+
+/**
+ * Notify the group immediately when a card is created in the first workflow column.
+ *
+ * @param stdClass $card Created card.
+ * @param stdClass $cm Course module.
+ * @return int Number of notifications accepted by Moodle's messaging API.
+ */
+function kanban_notify_group_new_todo_card($card, $cm) {
+    global $DB;
+
+    $columnids = kanban_get_workflow_column_ids($card->kanbanid);
+    if (empty($columnids) || (int)$card->columnid !== $columnids['todo']) {
+        return 0;
+    }
+
+    $kanban = $DB->get_record('kanban', ['id' => (int)$card->kanbanid], '*', MUST_EXIST);
+    return kanban_notify_group_members(
+        $kanban,
+        $cm,
+        (int)$card->groupid,
+        'cardassigned',
+        get_string('message_todo_new_subject', 'mod_kanban'),
+        get_string('message_todo_new', 'mod_kanban', format_string($card->title))
+    );
+}
+
 function kanban_notify_card_assignees($card, $cm, $event) {
     global $DB, $USER;
 
     if (!get_config('mod_kanban', 'enablenotifications')) {
-        return;
+        return 0;
     }
 
     $assigneeids = kanban_get_card_assignee_ids($card->id);
     if (empty($assigneeids)) {
-        return;
+        return 0;
     }
 
     $kanban = $DB->get_record('kanban', ['id' => $card->kanbanid], '*', MUST_EXIST);
@@ -475,6 +832,7 @@ function kanban_notify_card_assignees($card, $cm, $event) {
         $message .= "\n" . get_string('card_updated_message', 'mod_kanban');
     }
 
+    $sent = 0;
     foreach ($assigneeids as $assigneeid) {
         if ((int)$assigneeid === (int)$USER->id && $event !== 'deadline_warning' && $event !== 'deadline_overdue') {
             continue;
@@ -496,8 +854,12 @@ function kanban_notify_card_assignees($card, $cm, $event) {
         $notification->notification = 1;
         $notification->contexturl = $url->out(false);
         $notification->contexturlname = get_string('pluginname', 'mod_kanban');
-        message_send($notification);
+        if (message_send($notification) !== false) {
+            $sent++;
+        }
     }
+
+    return $sent;
 }
 
 function kanban_log_card_change($cardid, $action, $details = '') {

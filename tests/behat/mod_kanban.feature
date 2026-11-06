@@ -1,4 +1,4 @@
-@mod @mod_kanban
+@mod @mod_kanban @javascript
 Feature: Kanban permissions and WIP enforcement
   In order to manage project tasks safely
   As a teacher or student in the right group

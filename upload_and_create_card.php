@@ -23,6 +23,7 @@ $course = get_course($cm->course);
 require_login($course, false, $cm);
 $context = context_module::instance($cm->id);
 require_capability('mod/kanban:managecards', $context);
+kanban_require_single_group_membership($cm);
 require_sesskey();
 
 if (!$kanbanid || (int)$kanbanid !== (int)$cm->instance) {
@@ -35,6 +36,16 @@ $column = $DB->get_record('kanban_columns', ['id' => $columnid, 'kanbanid' => $k
 $currentgroup = groups_get_activity_group($cm, true);
 if (!has_capability('moodle/site:accessallgroups', $context) && $currentgroup && !groups_is_member($currentgroup, $USER->id)) {
     echo json_encode(['status' => false, 'message' => 'You are not a member of the allowed group']);
+    exit;
+}
+if (!kanban_check_wip_limit($column, $kanban->id, $currentgroup ?: 0)) {
+    echo json_encode([
+        'status' => false,
+        'message' => get_string('errorwiplimit', 'mod_kanban', (object)[
+            'column' => format_string($column->title),
+            'limit' => (int)$column->wip_limit,
+        ]),
+    ]);
     exit;
 }
 
@@ -50,8 +61,6 @@ if ($title === '') {
     echo json_encode(['status' => false, 'message' => get_string('required', 'mod_kanban')]);
     exit;
 }
-
-kanban_check_wip_limit($column, $kanban->id);
 
 global $DB, $USER;
 
@@ -83,60 +92,9 @@ kanban_set_card_assignees($cardid, $assigneeids);
 kanban_log_card_change($cardid, 'created', get_string('history_created', 'mod_kanban'));
 $card->id = $cardid;
 kanban_notify_card_assignees($card, $cm, 'assigned');
+kanban_notify_group_new_todo_card($card, $cm);
 
-// Save uploaded files into file storage under itemid = cardid.
-// PHP can expose multiple uploaded files as either "attachments" or "attachments[]" depending on how the request was built.
-$fs = get_file_storage();
-$filesaved = 0;
-$uploadgroups = [];
-foreach ($_FILES as $fieldname => $filedata) {
-    if (stripos($fieldname, 'attach') !== false || $fieldname === 'attachments' || $fieldname === 'attachments[]') {
-        $uploadgroups[] = $filedata;
-    }
-}
-
-if (empty($uploadgroups) && !empty($_FILES['attachments'])) {
-    $uploadgroups[] = $_FILES['attachments'];
-}
-if (empty($uploadgroups) && !empty($_FILES['attachments[]'])) {
-    $uploadgroups[] = $_FILES['attachments[]'];
-}
-
-foreach ($uploadgroups as $attachments) {
-    if (empty($attachments['name'])) {
-        continue;
-    }
-
-    $names = is_array($attachments['name']) ? $attachments['name'] : [$attachments['name']];
-    $tmpnames = is_array($attachments['tmp_name']) ? $attachments['tmp_name'] : [$attachments['tmp_name']];
-    $errors = is_array($attachments['error']) ? $attachments['error'] : [$attachments['error']];
-
-    foreach ($names as $index => $filename) {
-        if (!isset($tmpnames[$index]) || empty($tmpnames[$index])) {
-            continue;
-        }
-        if (!isset($errors[$index]) || (int)$errors[$index] !== UPLOAD_ERR_OK) {
-            continue;
-        }
-
-        $cleanfilename = clean_param($filename, PARAM_FILE);
-        if ($cleanfilename === '') {
-            continue;
-        }
-
-        $filerecord = [
-            'contextid' => $context->id,
-            'component' => 'mod_kanban',
-            'filearea' => 'card_attachments',
-            'itemid' => $cardid,
-            'filepath' => '/',
-            'filename' => $cleanfilename,
-        ];
-
-        $fs->create_file_from_pathname($filerecord, $tmpnames[$index]);
-        $filesaved++;
-    }
-}
+$filesaved = kanban_save_card_attachments($cardid, $cm, $_FILES);
 
 echo json_encode(['status' => true, 'cardid' => $cardid, 'files' => $filesaved, 'message' => get_string('msg_card_created', 'mod_kanban')]);
 exit;

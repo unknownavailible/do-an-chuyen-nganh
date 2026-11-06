@@ -11,6 +11,7 @@ $kanban = $DB->get_record('kanban', ['id' => $cm->instance], '*', MUST_EXIST);
 require_login($course, true, $cm);
 $context = context_module::instance($cm->id);
 require_capability('mod/kanban:viewdashboard', $context);
+kanban_require_single_group_membership($cm);
 
 $PAGE->set_url('/mod/kanban/dashboard.php', ['id' => $cm->id]);
 $PAGE->set_title(get_string('dashboard', 'mod_kanban') . ' - ' . format_string($kanban->name));
@@ -19,6 +20,7 @@ $PAGE->set_context($context);
 
 // Lấy thông tin nhóm sinh viên hiện tại
 $currentgroup = groups_get_activity_group($cm, true);
+$assignmentprogress = kanban_get_linked_assignment_progress($kanban, $cm, $currentgroup);
 
 // 1. Truy vấn các công việc theo nhóm
 $cardparams = ['kanbanid' => $kanban->id];
@@ -68,7 +70,11 @@ foreach ($allcards as $card) {
     foreach ($assigneeids as $uid) {
         $uid = (int)$uid;
         if (!isset($userstats[$uid])) {
-            if ($uid > 0 && $user = $DB->get_record('user', ['id' => $uid], 'id, firstname, lastname')) {
+            if ($uid > 0 && $user = $DB->get_record(
+                'user',
+                ['id' => $uid],
+                'id, firstname, lastname, firstnamephonetic, lastnamephonetic, middlename, alternatename'
+            )) {
                 $name = fullname($user);
             } else {
                 $name = get_string('dashboard_unassigned', 'mod_kanban');
@@ -119,8 +125,17 @@ if (class_exists('\core\chart_bar') && class_exists('\core\chart_pie')) {
     $progresschart = new \core\chart_pie();
     $progresschart->set_title(get_string('dashboard_progress_pie', 'mod_kanban'));
     $progresschart->set_doughnut(true);
-    $progresschart->add_series(new \core\chart_series(get_string('progress', 'mod_kanban'), [$donecount, $totalcards - $donecount]));
-    $progresschart->set_labels([get_string('column_done', 'mod_kanban'), get_string('dashboard_remaining', 'mod_kanban')]);
+    $progressseries = new \core\chart_series(
+        get_string('progress', 'mod_kanban'),
+        [$donecount, $totalcards - $donecount - $overduecount, $overduecount]
+    );
+    $progressseries->set_colors(['#28a745', '#6c757d', '#dc3545']);
+    $progresschart->add_series($progressseries);
+    $progresschart->set_labels([
+        get_string('column_done', 'mod_kanban'),
+        get_string('dashboard_remaining', 'mod_kanban'),
+        get_string('dashboard_expired', 'mod_kanban'),
+    ]);
 }
 
 echo $OUTPUT->header();
@@ -145,6 +160,100 @@ groups_print_activity_menu($cm, $CFG->wwwroot . '/mod/kanban/dashboard.php?id=' 
 ?>
 
 <div class="container-fluid px-0 mt-3">
+    <?php if ($assignmentprogress): ?>
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h5 class="card-title mb-0 fw-bold text-dark">
+                <i class="fa fa-book text-primary me-2"></i>
+                <?php echo get_string('assignment_progress_title', 'mod_kanban'); ?>
+            </h5>
+            <?php
+            echo html_writer::link(
+                new moodle_url($assignmentprogress['url']),
+                get_string('assignment_view_feedback', 'mod_kanban'),
+                ['class' => 'btn btn-sm btn-outline-primary']
+            );
+            ?>
+        </div>
+        <div class="card-body">
+            <p class="mb-3">
+                <strong><?php echo get_string('linkedassignment', 'mod_kanban'); ?>:</strong>
+                <?php
+                echo html_writer::link(
+                    new moodle_url($assignmentprogress['url']),
+                    $assignmentprogress['name']
+                );
+                ?>
+            </p>
+            <?php if ($assignmentprogress['state'] !== 'ready'): ?>
+                <?php
+                $assignmentmessage = [
+                    'selectgroup' => 'assignment_select_group',
+                    'nopermission' => 'assignment_no_permission',
+                    'blindmarking' => 'assignment_blind_marking',
+                ];
+                $messagekey = $assignmentmessage[$assignmentprogress['state']] ?? 'assignment_unavailable';
+                echo $OUTPUT->notification(get_string($messagekey, 'mod_kanban'), \core\output\notification::NOTIFY_INFO);
+                if ($assignmentprogress['state'] === 'selectgroup') {
+                    $assignmentcm = get_coursemodule_from_id(
+                        'assign',
+                        $assignmentprogress['groupselectorcmid'],
+                        0,
+                        false,
+                        MUST_EXIST
+                    );
+                    groups_print_activity_menu($assignmentcm, $PAGE->url->out(false));
+                }
+                ?>
+            <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th><?php echo get_string('dashboard_th_member', 'mod_kanban'); ?></th>
+                                <th><?php echo get_string('assignment_submission_status', 'mod_kanban'); ?></th>
+                                <th><?php echo get_string('assignment_grade', 'mod_kanban'); ?></th>
+                                <th><?php echo get_string('assignment_feedback', 'mod_kanban'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($assignmentprogress['rows'])): ?>
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">
+                                        <?php echo get_string('assignment_no_participants', 'mod_kanban'); ?>
+                                    </td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($assignmentprogress['rows'] as $assignmentrow): ?>
+                                    <tr>
+                                        <td class="fw-semibold"><?php echo s($assignmentrow['name']); ?></td>
+                                        <td><?php echo s($assignmentrow['status']); ?></td>
+                                        <td>
+                                            <?php
+                                            echo $assignmentrow['hasgrade']
+                                                ? s($assignmentrow['grade'])
+                                                : get_string('assignment_not_graded', 'mod_kanban');
+                                            ?>
+                                        </td>
+                                        <td>
+                                            <?php
+                                            echo html_writer::link(
+                                                new moodle_url($assignmentrow['url']),
+                                                get_string('assignment_view_feedback', 'mod_kanban')
+                                            );
+                                            ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- 4 Thẻ thống kê KPI -->
     <div class="row g-3 mb-4">
         <div class="col-md-3">
